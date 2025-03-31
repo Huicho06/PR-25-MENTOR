@@ -4,59 +4,54 @@ const Login = () => {
   const navigate = useNavigate();
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Inicia Sesión</h1>
-        <p style={styles.subtitle}>Ingresa tu nombre de usuario para iniciar sesión</p>
+    <div style={styles.wrapper}>
+      <div style={styles.container}>
+        <h2 style={styles.title}>Iniciar sesión</h2>
 
-        <input type="text" placeholder="Nombre de usuario" style={styles.input} />
+        <input style={styles.input} placeholder="Correo electrónico" />
+        <input style={styles.input} type="password" placeholder="Contraseña" />
 
-        <button style={styles.button}>Iniciar Sesión</button>
+        <button style={styles.button} onClick={() => navigate("/home")}>
+          Iniciar sesión
+        </button>
 
-        <p style={styles.registerText}>
-          ¿Usuario nuevo?{" "}
-          <span style={styles.registerLink} onClick={() => navigate("/register")}>
-            Regístrate
-          </span>
-        </p>
+        <p style={styles.forgotPassword} onClick={() => navigate("/forgot-password")}>
+  Olvidé mi contraseña
+</p>
+
       </div>
     </div>
   );
 };
 
 const styles = {
-  container: {
-    height: "100vh",
+  wrapper: {
     backgroundColor: "#0a0a0a",
+    minHeight: "100vh", // Esto asegura que el contenedor ocupe toda la altura de la pantalla
     display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "center", // Centra horizontalmente
+    alignItems: "center", // Centra verticalmente
     padding: 20,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 350,
-    textAlign: "left",
     color: "#fff",
   },
-  title: {
-    fontSize: "1.8rem",
-    marginBottom: 10,
+  container: {
+    width: "100%",
+    maxWidth: 400, // Tamaño máximo para los formularios
+    textAlign: "center",
+    padding: 20,
   },
-  subtitle: {
-    fontSize: "0.95rem",
-    marginBottom: 30,
-    color: "#ccc",
+  title: {
+    fontSize: "1.6rem",
+    marginBottom: 20,
   },
   input: {
     width: "100%",
     padding: "12px",
-    marginBottom: 20,
-    borderRadius: 10,
-    border: "none",
+    borderRadius: 8,
     backgroundColor: "#1a1a1a",
     color: "#fff",
-    fontSize: "1rem",
+    border: "none",
+    marginBottom: 20,
   },
   button: {
     width: "100%",
@@ -70,14 +65,19 @@ const styles = {
     marginBottom: 20,
     cursor: "pointer",
   },
-  registerText: {
+  forgotPassword: {
     fontSize: "0.9rem",
-    textAlign: "center",
-    color: "#aaa",
-  },
-  registerLink: {
     color: "#1ed760",
-    fontWeight: "bold",
+    cursor: "pointer",
+    textDecoration: "underline",
+  },
+  resend: {
+    textAlign: "center",
+    fontSize: "0.9rem",
+    color: "#999",
+  },
+  resendLink: {
+    color: "#1ed760",
     cursor: "pointer",
   },
 };

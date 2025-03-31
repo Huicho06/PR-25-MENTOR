@@ -40,3 +40,36 @@
 .read-the-docs {
   color: #888;
 }
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.5); /* Empieza pequeño */
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1); /* Crece al tamaño original */
+    opacity: 1;
+  }
+}
+
+.splash-wrapper {
+  height: 100vh;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 2s ease-in-out; /* Animación de desvanecimiento para el contenedor */
+}
+
+.splash-image {
+  width: 250px;
+  animation: scaleIn 2s ease-out; /* Animación de escala para la imagen */
+}

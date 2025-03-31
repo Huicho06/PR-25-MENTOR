@@ -1,26 +1,25 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import splashImg from "../assets/splash.png";
+import splashImg from "../assets/Group 967.png"; // Ruta de la imagen
+import "./styles/SplashScreen.css"; // Asegúrate de importar el CSS con las animaciones
 
 const SplashScreen = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-        navigate("/welcome");
+      navigate("/welcome");
     }, 3000); // 3 segundos
     return () => clearTimeout(timeout);
   }, [navigate]);
 
   return (
-    <div style={{
-      height: "100vh",
-      backgroundColor: "#ffffff",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center"
-    }}>
-      <img src={splashImg} alt="Splash Mentor" style={{ width: 250 }} />
+    <div className="splash-wrapper">
+      <img
+        src={splashImg}
+        alt="Splash Mentor"
+        className="splash-image"
+      />
     </div>
   );
 };

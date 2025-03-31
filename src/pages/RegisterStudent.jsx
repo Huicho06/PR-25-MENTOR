@@ -1,103 +1,103 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-const RegisterStudent = () => {
+const RegistroEstudiante = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    dob: { day: "", month: "", year: "" },
-    gender: "",
-    languages: "",
-    about: "",
-    city: "",
-    state: "",
-    address1: "",
-    address2: "",
-    pincode: "",
-    classType: "",
+  const [formulario, setFormulario] = useState({
+    nombre: "",
+    correo: "",
+    telefono: "",
+    nacimiento: { dia: "", mes: "", anio: "" },
+    genero: "",
+    idiomas: "",
+    descripcion: "",
+    ciudad: "",
+    estado: "",
+    direccion1: "",
+    direccion2: "",
+    codigoPostal: "",
+    tipoClase: "",
   });
 
-  const handleChange = (field, value) => {
-    setForm({ ...form, [field]: value });
+  const cambiarValor = (campo, valor) => {
+    setFormulario({ ...formulario, [campo]: valor });
   };
 
-  const handleDOBChange = (part, value) => {
-    setForm({ ...form, dob: { ...form.dob, [part]: value } });
+  const cambiarNacimiento = (parte, valor) => {
+    setFormulario({ ...formulario, nacimiento: { ...formulario.nacimiento, [parte]: valor } });
   };
 
-  const handleSubmit = () => {
-    console.log("Datos del estudiante:", form);
+  const enviarFormulario = () => {
+    console.log("Datos del estudiante:", formulario);
+    navigate("/verify/student");
+
   };
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.container}>
-        {/* HEADER */}
-        <div style={styles.header}>
-          <button style={styles.backBtn} onClick={() => navigate("/registertype")}>←</button>
-          <h2 style={styles.title}>Your Details</h2>
+    <div style={estilos.wrapper}>
+      <div style={estilos.container}>
+        <div style={estilos.header}>
+          <button style={estilos.backBtn} onClick={() => navigate("/registertype")}>←</button>
+          <h2 style={estilos.title}>Tus datos</h2>
 
-          <div style={styles.steps}>
-            {[1, 2, 3, 4].map((step, index) => (
-              <div key={index} style={styles.stepContainer}>
+          <div style={estilos.steps}>
+            {[1, 2].map((paso, index) => (
+              <div key={index} style={estilos.stepContainer}>
                 <div style={{
-                  ...styles.stepCircle,
-                  backgroundColor: step <= 2 ? "#1ed760" : "#444",
-                  color: step <= 2 ? "#000" : "#ccc"
+                  ...estilos.stepCircle,
+                  backgroundColor: paso <= 1 ? "#1ed760" : "#444",
+                  color: paso <= 2 ? "#000" : "#ccc"
                 }}>
-                  {step}
+                  {paso}
                 </div>
-                {step !== 4 && <div style={{
-                  ...styles.stepLine,
-                  backgroundColor: step < 2 ? "#1ed760" : "#666"
+                {paso !== 2 && <div style={{
+                  ...estilos.stepLine,
+                  backgroundColor: paso < 2 ? "#1ed760" : "#666"
                 }} />}
               </div>
             ))}
           </div>
         </div>
 
-        {/* FORMULARIO */}
-        <input style={styles.input} placeholder="Name" value={form.name} onChange={e => handleChange("name", e.target.value)} />
-        <input style={styles.input} placeholder="Email id" value={form.email} onChange={e => handleChange("email", e.target.value)} />
-        <input style={styles.input} placeholder="Phone number" value={form.phone} onChange={e => handleChange("phone", e.target.value)} />
+        <input style={estilos.input} placeholder="Nombre" value={formulario.nombre} onChange={e => cambiarValor("nombre", e.target.value)} />
+        <input style={estilos.input} placeholder="Correo electrónico" value={formulario.correo} onChange={e => cambiarValor("correo", e.target.value)} />
+        <input style={estilos.input} placeholder="Número de teléfono" value={formulario.telefono} onChange={e => cambiarValor("telefono", e.target.value)} />
 
-        <div style={styles.row}>
-          <input style={styles.inputSmall} placeholder="DD" value={form.dob.day} onChange={e => handleDOBChange("day", e.target.value)} />
-          <input style={styles.inputSmall} placeholder="MM" value={form.dob.month} onChange={e => handleDOBChange("month", e.target.value)} />
-          <input style={styles.inputSmall} placeholder="YYYY" value={form.dob.year} onChange={e => handleDOBChange("year", e.target.value)} />
+        <div style={estilos.row}>
+          <input style={estilos.inputSmall} placeholder="DD" value={formulario.nacimiento.dia} onChange={e => cambiarNacimiento("dia", e.target.value)} />
+          <input style={estilos.inputSmall} placeholder="MM" value={formulario.nacimiento.mes} onChange={e => cambiarNacimiento("mes", e.target.value)} />
+          <input style={estilos.inputSmall} placeholder="AAAA" value={formulario.nacimiento.anio} onChange={e => cambiarNacimiento("anio", e.target.value)} />
         </div>
 
-        <div style={styles.row}>
-          <label style={styles.radio}>
-            <input type="radio" name="gender" value="male" onChange={() => handleChange("gender", "male")} /> Male
+        <div style={estilos.row}>
+          <label style={estilos.radio}>
+            <input type="radio" name="genero" value="masculino" onChange={() => cambiarValor("genero", "masculino")} /> Masculino
           </label>
-          <label style={styles.radio}>
-            <input type="radio" name="gender" value="female" onChange={() => handleChange("gender", "female")} /> Female
+          <label style={estilos.radio}>
+            <input type="radio" name="genero" value="femenino" onChange={() => cambiarValor("genero", "femenino")} /> Femenino
           </label>
         </div>
 
-        <input style={styles.input} placeholder="Languages known" value={form.languages} onChange={e => handleChange("languages", e.target.value)} />
-        <textarea style={styles.textarea} placeholder="Write something about you..." value={form.about} onChange={e => handleChange("about", e.target.value)} />
+        <input style={estilos.input} placeholder="Idiomas que conoces" value={formulario.idiomas} onChange={e => cambiarValor("idiomas", e.target.value)} />
+        <textarea style={estilos.textarea} placeholder="Escribe algo sobre ti..." value={formulario.descripcion} onChange={e => cambiarValor("descripcion", e.target.value)} />
 
-        <h3 style={styles.section}>Your home address</h3>
-        <input style={styles.input} placeholder="City*" value={form.city} onChange={e => handleChange("city", e.target.value)} />
-        <input style={styles.input} placeholder="State*" value={form.state} onChange={e => handleChange("state", e.target.value)} />
-        <input style={styles.input} placeholder="House name" value={form.address1} onChange={e => handleChange("address1", e.target.value)} />
-        <input style={styles.input} placeholder="Address line 2" value={form.address2} onChange={e => handleChange("address2", e.target.value)} />
-        <input style={styles.input} placeholder="Pincode" value={form.pincode} onChange={e => handleChange("pincode", e.target.value)} />
+        <h3 style={estilos.section}>Tu dirección</h3>
+        <input style={estilos.input} placeholder="Ciudad*" value={formulario.ciudad} onChange={e => cambiarValor("ciudad", e.target.value)} />
+        <input style={estilos.input} placeholder="Departamento*" value={formulario.estado} onChange={e => cambiarValor("estado", e.target.value)} />
+        <input style={estilos.input} placeholder="Nombre de la casa" value={formulario.direccion1} onChange={e => cambiarValor("direccion1", e.target.value)} />
+        <input style={estilos.input} placeholder="Dirección línea 2" value={formulario.direccion2} onChange={e => cambiarValor("direccion2", e.target.value)} />
+        <input style={estilos.input} placeholder="Código postal" value={formulario.codigoPostal} onChange={e => cambiarValor("codigoPostal", e.target.value)} />
 
-        <h3 style={styles.section}>Set your preferred class type</h3>
-        <input style={styles.input} placeholder="Online Class" value={form.classType} onChange={e => handleChange("classType", e.target.value)} />
+        <h3 style={estilos.section}>Tipo de clase preferido</h3>
+        <input style={estilos.input} placeholder="Clase online" value={formulario.tipoClase} onChange={e => cambiarValor("tipoClase", e.target.value)} />
 
-        <button style={styles.button} onClick={handleSubmit}>Proceed</button>
+        <button style={estilos.button} onClick={enviarFormulario}>Continuar</button>
       </div>
     </div>
   );
 };
 
-const styles = {
+const estilos = {
   wrapper: {
     backgroundColor: "#0a0a0a",
     minHeight: "100vh",
@@ -213,4 +213,4 @@ const styles = {
   },
 };
 
-export default RegisterStudent;
+export default RegistroEstudiante;
