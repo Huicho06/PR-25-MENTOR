@@ -23,11 +23,14 @@ const EmailVerify = () => {
     const code = otp.join("");
     console.log("Código ingresado:", code);
     // Validar OTP aquí, si es correcto
-    navigate("/home"); // Redirige a la pantalla principal (HomeScreen)
+    navigate("/changepassword"); // Redirige a la pantalla principal (HomeScreen)
   };
 
   return (
     <div style={styles.wrapper}>
+                          <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+          ←
+        </button>
       <div style={styles.container}>
         <h2 style={styles.title}>Verificación de correo electrónico</h2>
         <p style={styles.subtitle}>
@@ -80,9 +83,11 @@ const styles = {
   title: {
     fontSize: "1.4rem",
     marginBottom: 20,
+
   },
   subtitle: {
     fontSize: "0.95rem",
+    
     marginBottom: 30,
     color: "#ccc",
   },
@@ -121,6 +126,18 @@ const styles = {
   resendLink: {
     color: "#1ed760",
     cursor: "pointer",
+  },
+  backBtn: {
+    fontSize: "24px",
+    backgroundColor: "#1a1a1a",
+    color: "#1ed760",
+    border: "none",
+    borderRadius: "8px",
+    padding: "5px 12px",
+    cursor: "pointer",
+    position: "absolute", // Posición absoluta en la esquina
+    top: "10px", // Asegúrate de que esté justo en la esquina superior izquierda
+    left: "10px",
   },
 };
 

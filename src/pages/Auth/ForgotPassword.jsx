@@ -12,7 +12,12 @@ const ForgotPassword = () => {
   };
 
   return (
+    
     <div style={styles.wrapper}>
+                    <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+          ←
+        </button>
+
       <div style={styles.container}>
         <h2 style={styles.title}>Recuperar Contraseña</h2>
         <input
@@ -58,6 +63,18 @@ const styles = {
       color: "#fff",
       border: "none",
       marginBottom: 20,
+    },
+    backBtn: {
+      fontSize: "24px",
+      backgroundColor: "#1a1a1a",
+      color: "#1ed760",
+      border: "none",
+      borderRadius: "8px",
+      padding: "5px 12px",
+      cursor: "pointer",
+      position: "absolute", // Posición absoluta en la esquina
+      top: "10px", // Asegúrate de que esté justo en la esquina superior izquierda
+      left: "10px",
     },
     button: {
       width: "100%",

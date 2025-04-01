@@ -9,7 +9,7 @@
 
 .splash-image {
   width: 250px;
-  animation: bounceIn 2s ease-in-out; /* Aplica la animación 'bounceIn' */
+  animation: bounceIn 2s ease-in-out, fadeOut 1s 2s forwards; /* Agregamos fadeOut después del rebote */
 }
 
 /* Animación de rebote */
@@ -27,5 +27,15 @@
   }
   100% {
     transform: scale(1); /* Vuelve al tamaño normal */
+  }
+}
+
+/* Animación de desvanecimiento */
+@keyframes fadeOut {
+  0% {
+    opacity: 1; /* Comienza visible */
+  }
+  100% {
+    opacity: 0; /* Desaparece lentamente */
   }
 }

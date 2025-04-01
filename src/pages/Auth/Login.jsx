@@ -1,11 +1,24 @@
 import { useNavigate } from "react-router-dom";
+import logo from "../../assets/logo.png"; // Ajusta la ruta según la estructura de carpetas
 
 const Login = () => {
   const navigate = useNavigate();
 
   return (
     <div style={styles.wrapper}>
+              <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+          ←
+        </button>
+
       <div style={styles.container}>
+        {/* Botón de retroceder en la esquina superior izquierda */}
+
+        <img
+          src={logo}
+          alt="Logo Mentor"
+          style={{ width: "300px", marginTop: "-160px", marginBottom: "120px" }} // Ajusta el valor negativo para moverlo hacia arriba
+        />
+
         <h2 style={styles.title}>Iniciar sesión</h2>
 
         <input style={styles.input} placeholder="Correo electrónico" />
@@ -16,9 +29,8 @@ const Login = () => {
         </button>
 
         <p style={styles.forgotPassword} onClick={() => navigate("/forgot-password")}>
-  Olvidé mi contraseña
-</p>
-
+          Olvidé mi contraseña
+        </p>
       </div>
     </div>
   );
@@ -39,6 +51,19 @@ const styles = {
     maxWidth: 400, // Tamaño máximo para los formularios
     textAlign: "center",
     padding: 20,
+    position: "relative", // Para posicionar el botón de retroceder
+  },
+  backBtn: {
+    fontSize: "24px",
+    backgroundColor: "#1a1a1a",
+    color: "#1ed760",
+    border: "none",
+    borderRadius: "8px",
+    padding: "5px 12px",
+    cursor: "pointer",
+    position: "absolute", // Posición absoluta en la esquina
+    top: "10px", // Asegúrate de que esté justo en la esquina superior izquierda
+    left: "10px",
   },
   title: {
     fontSize: "1.6rem",
@@ -52,6 +77,10 @@ const styles = {
     color: "#fff",
     border: "none",
     marginBottom: 20,
+  },
+  logo: {
+    width: 150, // Tamaño del logo, ajusta según sea necesario
+    marginBottom: 30, // Espaciado para separar el logo del resto del formulario
   },
   button: {
     width: "100%",
@@ -70,15 +99,6 @@ const styles = {
     color: "#1ed760",
     cursor: "pointer",
     textDecoration: "underline",
-  },
-  resend: {
-    textAlign: "center",
-    fontSize: "0.9rem",
-    color: "#999",
-  },
-  resendLink: {
-    color: "#1ed760",
-    cursor: "pointer",
   },
 };
 

@@ -9,7 +9,7 @@ const SplashScreen = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       navigate("/welcome");
-    }, 3000); // 3 segundos
+    }, 3000); // 3 segundos antes de redirigir
     return () => clearTimeout(timeout);
   }, [navigate]);
 
