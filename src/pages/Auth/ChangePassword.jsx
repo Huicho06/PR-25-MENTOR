@@ -1,20 +1,39 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+
+
 
 const ChangePassword = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const correoIngresado = location.state?.correo || ""; 
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Estado para mostrar/ocultar contraseñas
+  const [showPassword, setShowPassword] = useState(false); 
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
+    } else if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.");
     } else {
       setError("");
-      // Lógica para guardar la nueva contraseña
-      navigate("/login"); // Redirige al login
+  
+      try {
+        // Enviar un correo de restablecimiento de contraseña
+        const auth = getAuth();
+        await sendPasswordResetEmail(auth, correoIngresado); // Usamos el correo que el usuario ingresó para restablecer su contraseña
+  
+        console.log("Correo de restablecimiento enviado");
+        navigate("/login"); // Redirigir a la pantalla de login
+      } catch (error) {
+        console.error("Error al restablecer la contraseña:", error);
+        setError("Ocurrió un error al restablecer la contraseña");
+      }
     }
   };
 
