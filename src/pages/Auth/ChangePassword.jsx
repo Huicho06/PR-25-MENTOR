@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { doc, updateDoc , getDoc} from "firebase/firestore"; // Importar los métodos necesarios de Firestore
+import { db } from "../../services/firebase";
+import { query, where, getDocs, collection } from "firebase/firestore";
+
+import { getAuth, updatePassword } from "firebase/auth";
 
 
 
@@ -24,12 +28,14 @@ const ChangePassword = () => {
       setError("");
   
       try {
-        // Enviar un correo de restablecimiento de contraseña
         const auth = getAuth();
-        await sendPasswordResetEmail(auth, correoIngresado); // Usamos el correo que el usuario ingresó para restablecer su contraseña
-  
-        console.log("Correo de restablecimiento enviado");
-        navigate("/login"); // Redirigir a la pantalla de login
+        const user = auth.currentUser; // Obtén el usuario autenticado
+        
+        if (user) {
+          await updatePassword(user, password);  // Cambiar la contraseña
+          console.log("Contraseña cambiada correctamente");
+          navigate("/login");
+         } // Redirigir a la pantalla de login
       } catch (error) {
         console.error("Error al restablecer la contraseña:", error);
         setError("Ocurrió un error al restablecer la contraseña");
@@ -39,7 +45,7 @@ const ChangePassword = () => {
 
   return (
     <div style={styles.wrapper}>
-                            <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+        <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
           ←
         </button>
       <div style={styles.container}>

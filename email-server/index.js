@@ -29,7 +29,7 @@ app.post("/enviar-codigo", async (req, res) => {
 
     <p>Hola,</p>
 
-    <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de MENTOR asociada al correo <strong>%EMAIL%</strong>.</p>
+    <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de MENTOR asociada al correo <strong>${correo}</strong>.</p>
 
     <p>Tu código de recuperación es:</p>
 
