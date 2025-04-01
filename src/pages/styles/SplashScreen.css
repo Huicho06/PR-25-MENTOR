@@ -1,0 +1,41 @@
+.splash-wrapper {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+  overflow: hidden;
+}
+
+.splash-image {
+  width: 250px;
+  animation: bounceIn 2s ease-in-out, fadeOut 1s 2s forwards; /* Agregamos fadeOut después del rebote */
+}
+
+/* Animación de rebote */
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.5); /* Comienza pequeño */
+    opacity: 0; /* Comienza invisible */
+  }
+  50% {
+    transform: scale(1.1); /* Se agranda un poco */
+    opacity: 1; /* Se hace visible */
+  }
+  70% {
+    transform: scale(0.9); /* Se encoge un poco */
+  }
+  100% {
+    transform: scale(1); /* Vuelve al tamaño normal */
+  }
+}
+
+/* Animación de desvanecimiento */
+@keyframes fadeOut {
+  0% {
+    opacity: 1; /* Comienza visible */
+  }
+  100% {
+    opacity: 0; /* Desaparece lentamente */
+  }
+}

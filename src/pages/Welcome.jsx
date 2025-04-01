@@ -11,7 +11,7 @@ const Welcome = () => {
       <button style={styles.button} onClick={() => navigate("/login")}>
         Inicia Sesión
       </button>
-      <button style={styles.button} onClick={() => navigate("/registertype")}>
+      <button style={styles.button} onClick={() => navigate("/register")}>
         Regístrate
       </button>
     </div>
