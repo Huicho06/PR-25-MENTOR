@@ -1,8 +1,25 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../services/firebase"
 import logo from "../../assets/logo.png"; // Ajusta la ruta según la estructura de carpetas
 
 const Login = () => {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log("Inicio de sesión exitoso");
+      navigate("/home"); // Redirigir a la página principal
+    } catch (err) {
+      setError("Correo o contraseña incorrectos.");
+      console.error("Error al iniciar sesión:", err);
+    }
+  };
 
   return (
     <div style={styles.wrapper}>
@@ -21,10 +38,24 @@ const Login = () => {
 
         <h2 style={styles.title}>Iniciar sesión</h2>
 
-        <input style={styles.input} placeholder="Correo electrónico" />
-        <input style={styles.input} type="password" placeholder="Contraseña" />
+        <input
+          style={styles.input}
+          type="email"
+          placeholder="Correo electrónico"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)} // Asignar el valor del correo
+        />
+        <input
+          style={styles.input}
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)} // Asignar el valor de la contraseña
+        />
+        {/* Mostrar el error en rojo */}
+        {error && <p style={styles.error}>{error}</p>}
 
-        <button style={styles.button} onClick={() => navigate("/home")}>
+        <button style={styles.button} onClick={handleSubmit}>
           Iniciar sesión
         </button>
 
@@ -99,6 +130,11 @@ const styles = {
     color: "#1ed760",
     cursor: "pointer",
     textDecoration: "underline",
+  },
+  error: {
+    color: "red", // Red color for error message
+    fontSize: "0.9rem",
+    marginBottom: 20,
   },
 };
 
