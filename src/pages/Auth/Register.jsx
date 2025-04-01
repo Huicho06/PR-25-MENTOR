@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registrarUsuario } from "../../services/auth"; 
 import logo from "../../assets/logo.png"; // Ajusta la ruta según la estructura de carpetas
 
 const Register = () => {
@@ -13,6 +14,7 @@ const Register = () => {
     confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false); // Estado para mostrar/ocultar contraseñas
+  const [error, setError] = useState("");
 
   const handleChange = (field, value) => {
     setForm({ ...form, [field]: value });
@@ -22,9 +24,27 @@ const Register = () => {
     setRole(newRole);
   };
 
-  const handleSubmit = () => {
-    console.log("Form data:", form);
-    navigate("/home")  };
+  const handleSubmit = async () => {
+    if (form.password !== form.confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    try {
+      // Llamamos a la función de registro
+      await registrarUsuario(form.email, form.password, `${form.firstName} ${form.lastName}`, role);
+      console.log("Usuario registrado correctamente");
+      navigate("/welcome");  // Redirigir a la página principal (puedes ajustar esta ruta)
+    } catch (err) {
+      setError(err.message); 
+    }
+  };
+
 
   return (
     <div style={styles.wrapper}>
@@ -95,11 +115,13 @@ const Register = () => {
         />
         <input
           style={styles.input}
-          type={showPassword ? "text" : "password"} // Cambia tipo según estado
+          type={showPassword ? "text" : "password"}
           placeholder="Confirmar Contraseña"
           value={form.confirmPassword}
           onChange={(e) => handleChange("confirmPassword", e.target.value)}
         />
+        {/* Mostrar el error si existe */}
+        {error && <p style={styles.error}>{error}</p>}
 
         {/* Checkbox para mostrar/ocultar contraseñas */}
         <div style={styles.showPasswordContainer}>
@@ -184,6 +206,12 @@ const styles = {
   showPasswordLabel: {
     marginLeft: 10,
     fontSize: "0.9rem",
+  },
+  error: {
+    color: "red", 
+    fontSize: "0.9rem", 
+    fontWeight: "bold", 
+    marginBottom: 20, 
   },
   button: {
     width: "100%",

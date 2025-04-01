@@ -1,11 +1,11 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getAuth,createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged,sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-import { app } from "./firebase";  
+//import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+//import { app } from "./firebase";  
 
-const auth = getAuth(app); 
+
 
 
 export const enviarCorreoRecuperacion = async (correo) => {
@@ -21,19 +21,30 @@ export const enviarCorreoRecuperacion = async (correo) => {
 
 
 export const registrarUsuario = async (email, password, nombre, tipo, datosAdicionales = {}) => {
-  const credenciales = await createUserWithEmailAndPassword(auth, email, password);
-  const user = credenciales.user;
+  const auth = getAuth();
 
-  
-  const baseData = {
-    nombre,
-    correo: email,
-    tipo,
-    ...datosAdicionales,
-  };
+  try {
+    // Verificar si el email ya está en uso
+    const credenciales = await createUserWithEmailAndPassword(auth, email, password);
+    const user = credenciales.user;
 
-  await setDoc(doc(db, "usuarios", user.uid), baseData);
-  return user;
+    const baseData = {
+      nombre,
+      correo: email,
+      tipo,
+      ...datosAdicionales,
+    };
+
+    // Guardar los datos en Firestore
+    await setDoc(doc(db, "usuarios", user.uid), baseData);
+    return user;
+  } catch (error) {
+    if (error.code === 'auth/email-already-in-use') {
+      throw new Error('El correo electrónico ya está registrado');
+    } else {
+      throw new Error('Ocurrió un error al registrar el usuario');
+    }
+  }
 };
 
 // LOGIN
