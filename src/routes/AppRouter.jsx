@@ -11,6 +11,10 @@ import HomeScreen from "../pages/HomeScreen";
 import ForgotPassword from "../pages/Auth/ForgotPassword"; // Ruta para olvidé mi contraseña
 import EmailVerify from "../pages/Auth/EmailVerify"; // Nueva ruta para verificación de correo electrónico
 import ChangePassword from "../pages/Auth/ChangePassword";
+import MainScreen from "../pages/MainScreen";
+import CreateProfileStudent from "../pages/CreateProfileStudent";
+
+import CreateProfileTeacher from "../pages/CreateProfileTeacher";
 
 
 const AppRouter = () => {
@@ -31,6 +35,11 @@ const AppRouter = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify/email" element={<EmailVerify />} /> {/* Nueva ruta de verificación por correo */}
         <Route path="/changepassword" element={<ChangePassword />} />
+        <Route path="/main" element={<MainScreen />} />
+        <Route path="/CreateProfileStudent" element={<CreateProfileStudent />} />
+        <Route path="/CreateProfileTeacher" element={<CreateProfileTeacher />} />
+
+
 
       </Routes>
     </BrowserRouter>

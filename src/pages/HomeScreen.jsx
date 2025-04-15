@@ -19,7 +19,7 @@ const HomeScreen = () => {
           </p>
           <button
             style={styles.button}
-            onClick={() => navigate("/register/teacher")}
+            onClick={() => navigate("/CreateProfileStudent")}
           >
             Crear Perfil
           </button>

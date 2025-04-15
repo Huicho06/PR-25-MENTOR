@@ -24,7 +24,7 @@ const Register = () => {
 
   const handleSubmit = () => {
     console.log("Form data:", form);
-    navigate("/home")  };
+    navigate("/CreateProfileTeacher")  };
 
   return (
     <div style={styles.wrapper}>
