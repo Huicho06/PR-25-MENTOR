@@ -1,9 +1,16 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate , useLocation} from "react-router-dom";
+
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "../../services/firebase"; // Ajusta esto si es necesario
+
 
 const EmailVerify = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [otp, setOtp] = useState(["", "", "", ""]);
+  const [correoIngresado, setCorreoIngresado] = useState(location.state?.correo || ""); // Usar el correo pasado en el state
+  const [error, setError] = useState("");
   const inputRefs = useRef([]);
 
   const handleChange = (index, value) => {
@@ -19,24 +26,82 @@ const EmailVerify = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     const code = otp.join("");
     console.log("Código ingresado:", code);
-    // Validar OTP aquí, si es correcto
-    navigate("/changepassword"); // Redirige a la pantalla principal (HomeScreen)
+    
+    try {
+      if (!correoIngresado) {
+        setError("Por favor ingrese su correo electrónico.");
+        return;
+      }
+      // Buscar el código guardado en Firestore
+      const docId = correoIngresado.replace(/\./g, "_");
+      const ref = doc(db, "recuperaciones", docId); 
+      const docSnap = await getDoc(ref);      
+  
+      if (!docSnap.exists()) {
+        console.log("No se encontró el documento en Firestore");
+        setError("Este código es inválido o ha expirado");
+        return;
+      }
+  
+      const data = docSnap.data();
+      //console.log("Datos obtenidos de Firestore:", data);
+
+      if (data) {
+      const codigoGuardado = data.codigo;
+      const expiracion = data.expiracion ? data.expiracion.toDate() : null;
+
+      // Verificar que el código no haya expirado
+      const ahora = new Date();
+
+      if (!(expiracion instanceof Date)) {
+        setError("La fecha de expiración es inválida");
+        return;
+      }
+
+      if (ahora.getTime() > expiracion.getTime()) {
+        setError("El código ha expirado");
+        return;
+      }
+      // Comparar el código ingresado con el guardado
+      if (code === codigoGuardado) {
+        navigate("/changepassword", { state: { correo: correoIngresado } }); // Redirigir a la pantalla para cambiar la contraseña
+      } else {
+        setError("El código ingresado es incorrecto");
+      }
+
+    }
+
+
+
+      
+    } catch (error) {
+      console.error("Error al verificar el código:", error);
+      setError("Ocurrió un error al verificar el código");
+    }
+
   };
 
   return (
     <div style={styles.wrapper}>
-                          <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+        <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
           ←
         </button>
       <div style={styles.container}>
         <h2 style={styles.title}>Verificación de correo electrónico</h2>
         <p style={styles.subtitle}>
-          Por favor ingresa el código enviado a <strong>tu correo electrónico</strong>
+          Por favor ingresa el código enviado a <strong>{correoIngresado}</strong>
         </p>
 
+        {/* <input
+          type="email"
+          value={correoIngresado}
+          onChange={(e) => setCorreoIngresado(e.target.value)}  // Captura el correo
+          placeholder="Correo electrónico"
+          style={styles.input}
+        /> */}
         <div style={styles.otpContainer}>
           {otp.map((value, index) => (
             <input
@@ -49,6 +114,8 @@ const EmailVerify = () => {
             />
           ))}
         </div>
+
+        {error && <p style={styles.error}>{error}</p>}  {/* Mostrar el error si hay */}
 
         <button style={styles.button} onClick={handleSubmit}>
           Confirmar

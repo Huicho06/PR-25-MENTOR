@@ -1,14 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { generarCodigoRecuperacion } from "../../services/firestore";
+import { crearSolicitudRecuperacion } from "../../services/firestore";
+import { enviarCorreoRecuperacion } from "../../services/mail";
+
 const ForgotPassword = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit =  async() => {
     console.log("Email enviado a:", email);
-    // Aquí puedes integrar el proceso de envío de enlace o código para recuperar la contraseña.
-    navigate("/verify/email"); // Redirigir a la página de verificación por correo.
+    try {
+      const codigo = generarCodigoRecuperacion();
+      await crearSolicitudRecuperacion(email, codigo);
+      await enviarCorreoRecuperacion(email, codigo);
+      setMessage("Te hemos enviado un correo para restablecer tu contraseña.");
+      //alert("Código enviado al correo.");
+      navigate("/verify/email", { state: { correo: email } }); // Redirigir a pantalla de código
+    } catch (err) {
+      alert("Ocurrió un error: " + err.message);
+    }
   };
 
   return (
@@ -30,6 +43,8 @@ const ForgotPassword = () => {
         <button style={styles.button} onClick={handleSubmit}>
           Enviar enlace de recuperación
         </button>
+
+        {message && <p>{message}</p>} {/* Mostrar mensaje de éxito o error */}
       </div>
     </div>
   );
@@ -38,16 +53,16 @@ const ForgotPassword = () => {
 const styles = {
     wrapper: {
       backgroundColor: "#0a0a0a",
-      minHeight: "100vh", // Esto asegura que el contenedor ocupe toda la altura de la pantalla
+      minHeight: "100vh", 
       display: "flex",
-      justifyContent: "center", // Centra horizontalmente
-      alignItems: "center", // Centra verticalmente
+      justifyContent: "center", 
+      alignItems: "center", 
       padding: 20,
       color: "#fff",
     },
     container: {
       width: "100%",
-      maxWidth: 400, // Tamaño máximo para los formularios
+      maxWidth: 400, 
       textAlign: "center",
       padding: 20,
     },
@@ -72,8 +87,8 @@ const styles = {
       borderRadius: "8px",
       padding: "5px 12px",
       cursor: "pointer",
-      position: "absolute", // Posición absoluta en la esquina
-      top: "10px", // Asegúrate de que esté justo en la esquina superior izquierda
+      position: "absolute", 
+      top: "10px", 
       left: "10px",
     },
     button: {

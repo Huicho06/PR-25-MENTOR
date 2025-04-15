@@ -1,26 +1,51 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+
+import { doc, updateDoc , getDoc} from "firebase/firestore"; // Importar los métodos necesarios de Firestore
+import { db } from "../../services/firebase";
+import { query, where, getDocs, collection } from "firebase/firestore";
+
+import { getAuth, updatePassword } from "firebase/auth";
+
+
 
 const ChangePassword = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const correoIngresado = location.state?.correo || ""; 
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Estado para mostrar/ocultar contraseñas
+  const [showPassword, setShowPassword] = useState(false); 
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
+    } else if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.");
     } else {
       setError("");
-      // Lógica para guardar la nueva contraseña
-      navigate("/login"); // Redirige al login
+  
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser; // Obtén el usuario autenticado
+        
+        if (user) {
+          await updatePassword(user, password);  // Cambiar la contraseña
+          console.log("Contraseña cambiada correctamente");
+          navigate("/login");
+         } // Redirigir a la pantalla de login
+      } catch (error) {
+        console.error("Error al restablecer la contraseña:", error);
+        setError("Ocurrió un error al restablecer la contraseña");
+      }
     }
   };
 
   return (
     <div style={styles.wrapper}>
-                            <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
+        <button style={styles.backBtn} onClick={() => navigate("/welcome")}>
           ←
         </button>
       <div style={styles.container}>
