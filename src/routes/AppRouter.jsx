@@ -12,9 +12,14 @@ import ForgotPassword from "../pages/Auth/ForgotPassword"; // Ruta para olvidé 
 import EmailVerify from "../pages/Auth/EmailVerify"; // Nueva ruta para verificación de correo electrónico
 import ChangePassword from "../pages/Auth/ChangePassword";
 import MainScreen from "../pages/MainScreen";
+import MainScreenTeacher from "../pages/MainScreenTeacher";
 import CreateProfileStudent from "../pages/CreateProfileStudent";
 
 import CreateProfileTeacher from "../pages/CreateProfileTeacher";
+import UpdateProfileTeacher from "../pages/UpdateProfileTeacher";
+import UpdateProfileStudent from "../pages/UpdateProfileStudent";
+import ProfileScreen from "../pages/ProfileScreen";
+import ProfileScreenTeacher from "../pages/ProfileScreenTeacher";
 
 
 const AppRouter = () => {
@@ -36,10 +41,13 @@ const AppRouter = () => {
         <Route path="/verify/email" element={<EmailVerify />} /> {/* Nueva ruta de verificación por correo */}
         <Route path="/changepassword" element={<ChangePassword />} />
         <Route path="/main" element={<MainScreen />} />
+        <Route path="/mainTeacher" element={<MainScreenTeacher />} />
         <Route path="/CreateProfileStudent" element={<CreateProfileStudent />} />
         <Route path="/CreateProfileTeacher" element={<CreateProfileTeacher />} />
-
-
+        <Route path="/UpdateProfileTeacher" element={<UpdateProfileTeacher />} />
+        <Route path="/UpdateProfileStudent" element={<UpdateProfileStudent />} />
+        <Route path="/ProfileScreen" element={<ProfileScreen />} />
+        <Route path="/ProfileScreenTeacher" element={<ProfileScreenTeacher />} />
 
       </Routes>
     </BrowserRouter>

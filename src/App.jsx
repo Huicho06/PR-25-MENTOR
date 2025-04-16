@@ -1,20 +1,19 @@
-// src/routes/AppRouter.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import SplashScreen from "../pages/SplashScreen";
-// (Estas pantallas podés crearlas luego)
-import Login from "../pages/Auth/Login";
-import Register from "../pages/Auth/Register";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import MainScreen from "./pages/MainScreen";  // Asegúrate de que la ruta esté bien
+import ProfileScreen from "./pages/ProfileScreen";  // Ruta para el perfil
+import ChatsScreen from "./pages/ChatsScreen";  // Ruta para los chats
 
-const AppRouter = () => {
+function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<SplashScreen />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/main" element={<MainScreen />} />
+        <Route path="/profileData" element={<ProfileScreen />} />
+        <Route path="/chats" element={<ChatsScreen />} />
+        {/* Agrega más rutas si es necesario */}
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
-};
+}
 
-export default AppRouter;
+export default App;

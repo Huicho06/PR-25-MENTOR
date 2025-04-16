@@ -2,14 +2,18 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png"; // Logo de la app
 
-const CreateProfile = () => {
+const UpdateProfileTeacher = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [career, setCareer] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  
+  // Datos de perfil inicial (simulación, normalmente vendrían de una base de datos o API)
+  const [name, setName] = useState("Cristian Salvatierra");
+  const [career, setCareer] = useState("Ingeniería en Sistemas Informáticos");
+  const [phoneNumber, setPhoneNumber] = useState("123456789");
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [specializations, setSpecializations] = useState([]);
+  const [specializations, setSpecializations] = useState([
+    "Ingeniería de Software", "Bases de Datos"
+  ]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -36,9 +40,9 @@ const CreateProfile = () => {
   };
 
   const handleSubmit = () => {
-    // Aquí podrías agregar la lógica para guardar el perfil
+    // Aquí podrías agregar la lógica para actualizar el perfil
     console.log({ name, career, phoneNumber, profileImage, specializations });
-    navigate("/main"); // Redirige a la pantalla principal
+    navigate("/mainTeacher"); // Redirige a la pantalla principal
   };
 
   return (
@@ -48,7 +52,7 @@ const CreateProfile = () => {
         <img src={logo} alt="Logo Mentor" style={styles.logo} />
 
         {/* Título de la página */}
-        <h2 style={styles.title}>Crear Perfil de Tutor</h2>
+        <h2 style={styles.title}>Modificar Perfil de Tutor</h2>
 
         {/* Campo de nombre */}
         <input
@@ -247,4 +251,4 @@ const styles = {
   },
 };
 
-export default CreateProfile;
+export default UpdateProfileTeacher;

@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png"; // Logo de la app
 
-const CreateProfile = () => {
+const UpdateProfileStudent = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [career, setCareer] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  
+  // Datos de perfil inicial (simulación, normalmente vendrían de una base de datos o API)
+  const [name, setName] = useState("Cristian Salvatierra");
+  const [career, setCareer] = useState("Ingeniería en Sistemas Informáticos");
+  const [phoneNumber, setPhoneNumber] = useState("123456789");
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -23,7 +25,7 @@ const CreateProfile = () => {
   };
 
   const handleSubmit = () => {
-    // Aquí podrías agregar la lógica para guardar el perfil
+    // Aquí podrías agregar la lógica para actualizar el perfil
     console.log({ name, career, phoneNumber, profileImage });
     navigate("/main"); // Redirige a la pantalla principal
   };
@@ -35,7 +37,7 @@ const CreateProfile = () => {
         <img src={logo} alt="Logo Mentor" style={styles.logo} />
 
         {/* Título de la página */}
-        <h2 style={styles.title}>Crear Perfil de Estudiante</h2>
+        <h2 style={styles.title}>Modificar Perfil de Estudiante</h2>
 
         {/* Campo de nombre */}
         <input
@@ -154,4 +156,4 @@ const styles = {
   },
 };
 
-export default CreateProfile;
+export default UpdateProfileStudent;
