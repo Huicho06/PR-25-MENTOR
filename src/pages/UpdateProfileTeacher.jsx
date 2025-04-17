@@ -4,6 +4,7 @@ import { db } from "/src/services/firebase"; // Asegúrate de importar correctam
 import { getAuth } from "firebase/auth"; 
 import { getDoc, doc, updateDoc } from "firebase/firestore"; 
 import logo from "../assets/logo.png"; 
+import BottomNavTeacher from "../components/BottomNavTeacher";
 
 
 const UpdateProfileTeacher = () => {
@@ -209,6 +210,7 @@ const UpdateProfileTeacher = () => {
           Guardar Perfil
         </button>
       </div>
+      <BottomNavTeacher />
     </div>
   );
 };

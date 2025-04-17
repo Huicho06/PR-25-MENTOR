@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { db } from "/src/services/firebase";  // Asegúrate de que la importación sea correcta
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";  // Para obtener y actualizar datos
-import logo from "../assets/logo.png";  // Logo de la app
+import logo from "../assets/logo.png";
+import BottomNav from "../components/BottomNav";  // Logo de la app
 import personImage from "../assets/person.png";
 
 const UpdateProfileStudent = () => {
@@ -134,6 +135,7 @@ const UpdateProfileStudent = () => {
           Guardar Perfil
         </button>
       </div>
+      <BottomNav />
     </div>
   );
 };

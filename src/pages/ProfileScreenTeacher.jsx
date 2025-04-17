@@ -5,6 +5,7 @@ import { getAuth } from "firebase/auth";
 import { getDoc, doc } from "firebase/firestore"; 
 import logo from "../assets/logo.png"; 
 import personImage from "../assets/person.png"; 
+import BottomNavTeacher from "../components/BottomNavTeacher";
 
 const ProfileScreenTeacher = () => {
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ const ProfileScreenTeacher = () => {
           </button>
         </div>
       </div>
+      <BottomNavTeacher />
     </div>
   );
 };

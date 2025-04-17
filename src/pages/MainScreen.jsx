@@ -8,6 +8,8 @@ import personImage from "../assets/person.png"; // Imagen de perfil predetermina
 import { FaBell, FaUser } from "react-icons/fa"; // Iconos de campanita y usuario
 import { FiFilter } from "react-icons/fi"; // Icono de filtro
 import BottomNav from "../components/BottomNav"; // Componente de navegación inferior
+import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
+
 
 const MainScreen = () => {
   const navigate = useNavigate();
@@ -114,6 +116,7 @@ const MainScreen = () => {
         <div style={styles.rightNav}>
           <FaBell style={styles.bellIcon} onClick={() => setIsNotificationModalOpen(true)} />
           <FaUser style={styles.userIcon} onClick={() => navigate("/profileScreen")} />
+          <BottomNavLogout />
         </div>
       </div>
 
@@ -270,6 +273,7 @@ const styles = {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
+    marginRight: "20px"
   },
   container: {
     padding: "20px",

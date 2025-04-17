@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png"; // Logo de la app
 import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
-import BottomNav from "../components/BottomNavTeacher"; // Importa el componente BottomNav
+import BottomNavTeacher from "../components/BottomNavTeacher"; // Importa el componente BottomNav
 import personImage from "../assets/person.png"; 
+import BottomNavLogout from "../components/SignOut";
 
 const MainScreenTeacher = () => {
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ const MainScreenTeacher = () => {
             onClick={() => setIsNotificationModalOpen(true)} // Abre el modal de notificaciones
           />
           <FaUser style={styles.userIcon} onClick={handleViewProfile} />
+          <BottomNavLogout />
         </div>
       </div>
 
@@ -144,7 +146,7 @@ const MainScreenTeacher = () => {
       )}
 
       {/* Mantener el BottomNav */}
-      <BottomNav />
+      <BottomNavTeacher />
     </div>
   );
 };
@@ -188,6 +190,7 @@ const styles = {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
+    marginRight: "20px"
   },
   container: {
     padding: "20px",
