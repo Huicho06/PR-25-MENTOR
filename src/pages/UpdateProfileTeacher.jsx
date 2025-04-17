@@ -1,20 +1,43 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png"; // Logo de la app
+import { db } from "/src/services/firebase"; // Asegúrate de importar correctamente
+import { getAuth } from "firebase/auth"; 
+import { getDoc, doc, updateDoc } from "firebase/firestore"; 
+import logo from "../assets/logo.png"; 
+
 
 const UpdateProfileTeacher = () => {
   const navigate = useNavigate();
-  
-  // Datos de perfil inicial (simulación, normalmente vendrían de una base de datos o API)
-  const [name, setName] = useState("Cristian Salvatierra");
-  const [career, setCareer] = useState("Ingeniería en Sistemas Informáticos");
-  const [phoneNumber, setPhoneNumber] = useState("123456789");
+  const auth = getAuth();
+  const [teacherData, setTeacherData] = useState(null); // Para almacenar los datos del docente
+  const [name, setName] = useState("");
+  const [career, setCareer] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [specializations, setSpecializations] = useState([
-    "Ingeniería de Software", "Bases de Datos"
-  ]);
+  const [specializations, setSpecializations] = useState([]); // Para las áreas de especialización
 
+  // Función para cargar los datos del docente
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      const fetchUserData = async () => {
+        const userRef = doc(db, "usuarios", user.uid); // Obtener datos del usuario logueado
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setTeacherData(data); // Actualiza el estado con los datos del docente
+          setName(data.nombre || "");
+          setCareer(data.carrera || "");
+          setPhoneNumber(data.telefono || "");
+          setSpecializations(data.especializaciones || []); // Cargar especializaciones
+        }
+      };
+      fetchUserData();
+    }
+  }, [auth]);
+
+  // Función para manejar cambios en la imagen
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -27,6 +50,7 @@ const UpdateProfileTeacher = () => {
     }
   };
 
+  // Función para manejar las especializaciones seleccionadas
   const handleSpecializationsChange = (e) => {
     const { value, checked } = e.target;
     if (checked) {
@@ -39,11 +63,38 @@ const UpdateProfileTeacher = () => {
     }
   };
 
-  const handleSubmit = () => {
-    // Aquí podrías agregar la lógica para actualizar el perfil
-    console.log({ name, career, phoneNumber, profileImage, specializations });
-    navigate("/mainTeacher"); // Redirige a la pantalla principal
+  // Función para manejar los cambios de perfil
+  const handleSubmit = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        alert("No estás logueado.");
+        return;
+      }
+
+      // Actualizamos los datos del docente en Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      const updatedData = {
+        nombre: name,
+        carrera: career,
+        telefono: phoneNumber,
+        fotoPerfil: profileImage ? profileImage.name : null, // Solo si se sube una nueva imagen
+        especializaciones: specializations, // Actualizar especializaciones
+      };
+
+      await updateDoc(userRef, updatedData); // Actualiza los datos del usuario en Firestore
+
+      console.log("Perfil actualizado correctamente");
+      navigate("/mainTeacher"); // Redirige a la página principal
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error);
+    }
   };
+
+  // Cargar los datos de perfil, si no están listos, muestra "Loading..."
+  if (!teacherData) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div style={styles.wrapper}>
@@ -69,14 +120,10 @@ const UpdateProfileTeacher = () => {
           onChange={(e) => setCareer(e.target.value)}
         >
           <option value="" disabled>Selecciona tu carrera</option>
-          <option value="Ingeniería en Sistemas Informáticos">
-            Ingeniería en Sistemas Informáticos
-          </option>
+          <option value="Ingeniería en Sistemas Informáticos">Ingeniería en Sistemas Informáticos</option>
           <option value="Ingeniería Biomédica">Ingeniería Biomédica</option>
           <option value="Ingeniería Electrónica">Ingeniería Electrónica</option>
-          <option value="Ingeniería de Telecomunicaciones">
-            Ingeniería de Telecomunicaciones
-          </option>
+          <option value="Ingeniería de Telecomunicaciones">Ingeniería de Telecomunicaciones</option>
         </select>
 
         {/* Campo de teléfono */}

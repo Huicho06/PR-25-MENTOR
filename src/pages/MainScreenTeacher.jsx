@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png"; // Logo de la app
 import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
 import BottomNav from "../components/BottomNavTeacher"; // Importa el componente BottomNav
+import personImage from "../assets/person.png"; 
 
 const MainScreenTeacher = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const MainScreenTeacher = () => {
   };
 
   const handleViewProfile = () => {
-    navigate("/ProfileScreen"); // Redirige al perfil
+    navigate("/ProfileScreenTeacher"); // Redirige al perfil
   };
 
   const handleAcceptRequest = (mentor) => {

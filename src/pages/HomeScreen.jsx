@@ -1,8 +1,34 @@
 import { useNavigate } from "react-router-dom";
+import { getAuth } from "firebase/auth";
+import { db } from "/src/services/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const HomeScreen = () => {
   const navigate = useNavigate();
 
+  const handleCreateProfile = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;  // Obtener el usuario logueado
+
+    if (user) {
+      // Si el usuario está logueado, buscamos su tipo en Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // Si el perfil no está completado, lo redirigimos a la página de creación de perfil
+        if (!userData.perfilCompletado) {
+          if (userData.tipo === "student") {
+            navigate("/CreateProfileStudent");  // Redirigir a la página de creación de perfil para estudiante
+          } else {
+            navigate("/CreateProfileTeacher");  // Redirigir a la página de creación de perfil para docente
+          }
+        } 
+      }
+    }
+  };
   return (
     <div style={styles.wrapper}>
       <div style={styles.container}>
@@ -19,7 +45,7 @@ const HomeScreen = () => {
           </p>
           <button
             style={styles.button}
-            onClick={() => navigate("/CreateProfileStudent")}
+            onClick={handleCreateProfile} 
           >
             Crear Perfil
           </button>

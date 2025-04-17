@@ -28,17 +28,17 @@ export const registrarUsuario = async (email, password, nombre, tipo, datosAdici
     const credenciales = await createUserWithEmailAndPassword(auth, email, password);
     const user = credenciales.user;
 
-    const docId = email.replace(/\./g, "_");
 
     const baseData = {
       nombre,
       correo: email,
       tipo,
+      perfilCompletado: false,
       ...datosAdicionales,
     };
 
     // Guardar los datos en Firestore
-    await setDoc(doc(db, "usuarios", docId), baseData);
+    await setDoc(doc(db, "usuarios", user.uid), baseData);
     return user;
   } catch (error) {
     if (error.code === 'auth/email-already-in-use') {

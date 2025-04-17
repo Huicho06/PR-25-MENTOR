@@ -38,9 +38,11 @@ const Register = () => {
 
     try {
       // Llamamos a la función de registro
-      await registrarUsuario(form.email, form.password, `${form.firstName} ${form.lastName}`, role);
+      await registrarUsuario(form.email, form.password, `${form.firstName} ${form.lastName}`, role, {
+        perfilCompletado: false, // El perfil aún no está completado
+      });
       console.log("Usuario registrado correctamente");
-      navigate("/CreateProfileTeacher");  // Redirigir a la página principal (puedes ajustar esta ruta)
+      navigate("/Login");  // Redirigir a la página principal (puedes ajustar esta ruta)
     } catch (err) {
       setError(err.message); 
     }
