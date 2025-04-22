@@ -1,25 +1,40 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FaHome, FaComments, FaUser } from "react-icons/fa"; // Para los iconos
-import { useNavigate } from "react-router-dom"; // Para la navegación
+import { useNavigate, useLocation } from "react-router-dom"; // Para la navegación
 
 const BottomNav = () => {
   const navigate = useNavigate(); // Hook de navegación de react-router-dom
+  const location = useLocation(); // Hook para obtener la ubicación actual
+
+  const [activeTab, setActiveTab] = useState("home"); // Estado para manejar el tab activo
+
+  // Cambiar el tab activo según la ruta actual
+  useEffect(() => {
+    if (location.pathname.includes("main")) {
+      setActiveTab("home");
+    } else if (location.pathname.includes("ChatScreen")) {
+      setActiveTab("chats");
+    } else if (location.pathname.includes("ProfileScreen")) {
+      setActiveTab("profile");
+    }
+  }, [location]);
 
   // Función para manejar la navegación
   const handleNavigation = (tab) => {
+    setActiveTab(tab); // Actualiza el tab activo
     if (tab === "home") {
       navigate("/main"); // Redirige al MainScreen
     } else if (tab === "profile") {
       navigate("/ProfileScreen"); // Redirige a la página de perfil
     } else if (tab === "chats") {
-      navigate("/chats"); // Redirige a la página de Chats (si es necesario)
+      navigate("/ChatScreen"); // Redirige a la página de Chats
     }
   };
 
   return (
     <div style={styles.navBar}>
       <div
-        style={styles.navItem}
+        style={activeTab === "home" ? styles.activeNavItem : styles.navItem} // Cambia el estilo si el tab está activo
         onClick={() => handleNavigation("home")}
       >
         <FaHome style={styles.icon} />
@@ -27,7 +42,7 @@ const BottomNav = () => {
       </div>
 
       <div
-        style={styles.navItem}
+        style={activeTab === "chats" ? styles.activeNavItem : styles.navItem} // Cambia el estilo si el tab está activo
         onClick={() => handleNavigation("chats")}
       >
         <FaComments style={styles.icon} />
@@ -35,7 +50,7 @@ const BottomNav = () => {
       </div>
 
       <div
-        style={styles.navItem}
+        style={activeTab === "profile" ? styles.activeNavItem : styles.navItem} // Cambia el estilo si el tab está activo
         onClick={() => handleNavigation("profile")}
       >
         <FaUser style={styles.icon} />
@@ -66,6 +81,13 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     color: "#fff",
+    cursor: "pointer",
+  },
+  activeNavItem: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    color: "#1ed760", // Color verde para el tab activo
     cursor: "pointer",
   },
   icon: {

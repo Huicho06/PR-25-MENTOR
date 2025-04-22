@@ -17,7 +17,7 @@ const ProfileScreen = () => {
 
   // Función para manejar la redirección cuando se hace clic en "Editar Perfil"
   const handleEditProfile = () => {
-    navigate("/UpdateProfile"); // Redirige al UpdateProfileTeacher
+    navigate("/UpdateProfileStudent"); // Redirige al UpdateProfileTeacher
   };
 
   return (

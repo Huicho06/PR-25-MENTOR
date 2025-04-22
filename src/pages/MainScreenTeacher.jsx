@@ -19,6 +19,8 @@ const MainScreenTeacher = () => {
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false); // Estado para el modal de notificaciones
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false); // Modal de detalles
   const [selectedMentor, setSelectedMentor] = useState(null); // Mentor seleccionado para ver detalles
+  const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false); // Modal para rechazo
+  const [rejectionMessage, setRejectionMessage] = useState(""); // Mensaje de rechazo
 
   // Estado de las notificaciones
   const [notifications, setNotifications] = useState([
@@ -40,7 +42,8 @@ const MainScreenTeacher = () => {
   };
 
   const handleRejectRequest = (mentor) => {
-    console.log(`Solicitud rechazada de ${mentor.name}`);
+    setSelectedMentor(mentor);
+    setIsRejectionModalOpen(true); // Abre el modal de rechazo
   };
 
   const handleViewDetails = (mentor) => {
@@ -53,11 +56,31 @@ const MainScreenTeacher = () => {
     setSelectedMentor(null); // Limpia el mentor seleccionado
   };
 
+  const handleCloseRejectionModal = () => {
+    setIsRejectionModalOpen(false); // Cierra el modal de rechazo
+    setRejectionMessage(""); // Limpia el mensaje de rechazo
+  };
+
+  const handleSubmitRejection = () => {
+    console.log(`Solicitud rechazada de ${selectedMentor.name}. Motivo: ${rejectionMessage}`);
+    setIsRejectionModalOpen(false); // Cierra el modal de rechazo después de enviar
+    setRejectionMessage(""); // Limpia el mensaje de rechazo
+  };
+
   const handleDownloadFile = (fileName) => {
     const link = document.createElement("a");
     link.href = `/path/to/your/files/${fileName}`; // Cambia esta ruta con la ruta correcta al archivo
     link.download = fileName;
     link.click();
+  };
+
+  // Manejo del modal de notificaciones
+  const handleOpenNotificationModal = () => {
+    setIsNotificationModalOpen(true); // Abre el modal de notificaciones
+  };
+
+  const handleCloseNotificationModal = () => {
+    setIsNotificationModalOpen(false); // Cierra el modal de notificaciones
   };
 
   return (
@@ -68,7 +91,7 @@ const MainScreenTeacher = () => {
         <div style={styles.rightNav}>
           <FaBell
             style={styles.bellIcon}
-            onClick={() => setIsNotificationModalOpen(true)} // Abre el modal de notificaciones
+            onClick={handleOpenNotificationModal} // Abre el modal de notificaciones
           />
           <FaUser style={styles.userIcon} onClick={handleViewProfile} />
         </div>
@@ -142,6 +165,54 @@ const MainScreenTeacher = () => {
         </div>
       )}
 
+      {/* Modal para el rechazo */}
+      {isRejectionModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2>Rechazar Solicitud</h2>
+            <textarea
+              placeholder="Explica por qué rechazas esta solicitud..."
+              value={rejectionMessage}
+              onChange={(e) => setRejectionMessage(e.target.value)}
+              style={styles.textarea}
+            />
+            <div style={styles.modalButtons}>
+              <button
+                onClick={handleSubmitRejection}
+                style={styles.modalButton1}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={handleCloseRejectionModal}
+                style={styles.modalButton2}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+{isNotificationModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.notificationModal}>
+            <h2>Notificaciones</h2>
+            <div style={styles.notificationContent}>
+              {notifications.map((notification) => (
+                <div key={notification.id} style={styles.notificationItem}>
+                  <div style={styles.notificationIcon}></div>
+                  <p style={styles.notificationMessage}>{notification.message}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={handleCloseNotificationModal} style={styles.modalButton2}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mantener el BottomNav */}
       <BottomNav />
     </div>
@@ -156,6 +227,38 @@ const styles = {
     flexDirection: "column",
     padding: 20,
     color: "#fff",
+  },
+  notificationModal: {
+    backgroundColor: "#2a2a2a",
+    padding: "20px",
+    borderRadius: "10px",
+    width: "80%",
+    maxWidth: "400px",
+    color: "#fff",
+    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)", // Sombra para resaltar el modal
+  },
+  notificationContent: {
+    marginBottom: "15px",
+  },
+  notificationItem: {
+    backgroundColor: "#333", // Fondo de cada notificación
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "10px",
+    display: "flex",
+    alignItems: "center",
+    color: "#fff",
+  },
+  notificationIcon: {
+    width: "15px",
+    height: "15px",
+    backgroundColor: "#1ed760", // Un icono circular para las notificaciones
+    borderRadius: "50%",
+    marginRight: "15px",
+  },
+  notificationMessage: {
+    fontSize: "1rem",
+    color: "#ccc",
   },
   Solicitudes: {
     display: "flex",
@@ -277,16 +380,27 @@ const styles = {
     maxWidth: "400px",
     color: "#fff",
     boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    flexDirection: "column",
   },
   modalButtons: {
+    marginTop: "20px",
     display: "flex",
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
   modalButton1: {
     padding: "10px 20px",
     borderRadius: "5px",
     cursor: "pointer",
-    backgroundColor: "#f44336", // Verde para aceptar
+    backgroundColor: "#1ed760",
+    color: "#fff",
+    border: "none",
+  },
+  modalButton2: {
+    padding: "10px 20px",
+    borderRadius: "5px",
+    cursor: "pointer",
+    backgroundColor: "#f44336",
     color: "#fff",
     border: "none",
   },
@@ -300,11 +414,20 @@ const styles = {
     marginBottom: "20px",
     marginLeft: "15px",
     cursor: "pointer",
-    
   },
   message: {
     marginTop: "20px",
     marginBottom: "20px",
+  },
+  textarea: {
+    padding: "15px",
+    borderRadius: "8px",
+    marginTop: "15px",
+    fontSize: "1rem",
+    resize: "none",
+    border: "1px solid #ccc",
+    backgroundColor: "#333",
+    color: "#fff",
   },
 };
 

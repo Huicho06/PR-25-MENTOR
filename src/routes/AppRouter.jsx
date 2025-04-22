@@ -20,6 +20,7 @@ import UpdateProfileTeacher from "../pages/UpdateProfileTeacher";
 import UpdateProfileStudent from "../pages/UpdateProfileStudent";
 import ProfileScreen from "../pages/ProfileScreen";
 import ProfileScreenTeacher from "../pages/ProfileScreenTeacher";
+import ChatScreen from "../pages/ChatScreen";
 
 
 const AppRouter = () => {
@@ -29,8 +30,7 @@ const AppRouter = () => {
         <Route path="/" element={<SplashScreen />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} /> {/* Ya está bien el nombre aquí */}
-
+        <Route path="/register" element={<Register />} />
         <Route path="/register/teacher/step2" element={<RegisterTeacherStep2 />} />
         <Route path="/register/teacher/subjects/academic" element={<RegisterAcademicSubjects />} />
         <Route path="/register/teacher/subjects/non-academic" element={<RegisterNonAcademicSubjects />} />
@@ -38,7 +38,7 @@ const AppRouter = () => {
         <Route path="/verify/student" element={<CodeVerify steps={2} />} />
         <Route path="/home" element={<HomeScreen />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify/email" element={<EmailVerify />} /> {/* Nueva ruta de verificación por correo */}
+        <Route path="/verify/email" element={<EmailVerify />} /> 
         <Route path="/changepassword" element={<ChangePassword />} />
         <Route path="/main" element={<MainScreen />} />
         <Route path="/mainTeacher" element={<MainScreenTeacher />} />
@@ -48,7 +48,7 @@ const AppRouter = () => {
         <Route path="/UpdateProfileStudent" element={<UpdateProfileStudent />} />
         <Route path="/ProfileScreen" element={<ProfileScreen />} />
         <Route path="/ProfileScreenTeacher" element={<ProfileScreenTeacher />} />
-
+        <Route path="/ChatScreen" element={<ChatScreen />} />
       </Routes>
     </BrowserRouter>
   );

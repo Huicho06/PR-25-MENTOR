@@ -4,6 +4,7 @@ import logo from "../assets/logo.png"; // Logo de la app
 import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
 import { FiFilter } from "react-icons/fi"; // Para el nuevo icono de filtro
 import BottomNav from "../components/BottomNav"; // Importa el componente BottomNav
+import Navbar from "../components/MainNavbar"; // Importa el componente BottomNav
 
 const MainScreen = () => {
   const navigate = useNavigate();
@@ -23,12 +24,6 @@ const MainScreen = () => {
   const [selectedSpecialization, setSelectedSpecialization] = useState(""); // Estado para el área de especialización
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false); // Estado para el modal de notificaciones
 
-  // Estado de las notificaciones
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Nueva solicitud de mentoría de Ramal Cart" },
-    { id: 2, message: "Has recibido un mensaje de Mary Jones" },
-    { id: 3, message: "Angela Mohammed actualizó su perfil" },
-  ]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -75,18 +70,7 @@ const MainScreen = () => {
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.navBar}>
-        {/* Logo */}
-        <img src={logo} alt="Logo Mentor" style={styles.logo} />
-        <div style={styles.rightNav}>
-          <FaBell
-            style={styles.bellIcon}
-            onClick={handleOpenNotificationModal} // Abre el modal de notificaciones al hacer clic en el icono
-          />
-          {/* Botón de usuario para redirigir al perfil */}
-          <FaUser style={styles.userIcon} onClick={handleViewProfile} />
-        </div>
-      </div>
+      <Navbar />
 
       <div style={styles.container}>
         {/* Barra de búsqueda */}
@@ -185,25 +169,7 @@ const MainScreen = () => {
           </div>
         </div>
       )}
-      {/* Modal de notificaciones */}
-      {isNotificationModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.notificationModal}>
-            <h2>Notificaciones</h2>
-            <div style={styles.notificationContent}>
-              {notifications.map((notification) => (
-                <div key={notification.id} style={styles.notificationItem}>
-                  <div style={styles.notificationIcon}></div>
-                  <p style={styles.notificationMessage}>{notification.message}</p>
-                </div>
-              ))}
-            </div>
-            <button onClick={handleCloseNotificationModal} style={styles.modalButton2}>
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
+      
 
       {/* Agregar el BottomNav aquí */}
       <BottomNav />
