@@ -1,16 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png"; // Logo de la app
+import { db } from "/src/services/firebase";  // Asegúrate de que la importación sea correcta
+import { getAuth } from "firebase/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";  // Para obtener y actualizar datos
+import logo from "../assets/logo.png";
+import BottomNav from "../components/BottomNav";  // Logo de la app
+import personImage from "../assets/person.png";
 
 const UpdateProfileStudent = () => {
   const navigate = useNavigate();
+  const auth = getAuth();
   
-  // Datos de perfil inicial (simulación, normalmente vendrían de una base de datos o API)
-  const [name, setName] = useState("Cristian Salvatierra");
-  const [career, setCareer] = useState("Ingeniería en Sistemas Informáticos");
-  const [phoneNumber, setPhoneNumber] = useState("123456789");
+  // Datos de perfil inicial (simulación, normalmente vendrían de la base de datos o API)
+  const [name, setName] = useState("");
+  const [career, setCareer] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+
+  useEffect(() => {
+    // Obtener los datos del usuario logueado
+    const user = auth.currentUser;
+    if (user) {
+      const fetchUserData = async () => {
+        const userRef = doc(db, "usuarios", user.uid); // Obtener datos del usuario en Firestore
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          // Si el documento existe, llenar los campos con los datos del usuario
+          const userData = userDoc.data();
+          setName(userData.nombre || "");
+          setCareer(userData.carrera || "");
+          setPhoneNumber(userData.telefono || "");
+        }
+      };
+      fetchUserData();
+    }
+  }, [auth]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -24,10 +49,30 @@ const UpdateProfileStudent = () => {
     }
   };
 
-  const handleSubmit = () => {
-    // Aquí podrías agregar la lógica para actualizar el perfil
-    console.log({ name, career, phoneNumber, profileImage });
-    navigate("/main"); // Redirige a la pantalla principal
+  const handleSubmit = async () => {
+    try {
+      const user = auth.currentUser; // Obtener el usuario logueado
+
+      // Actualizar datos en Firestore
+      const userRef = doc(db, "usuarios", user.uid);  // Referencia al documento del usuario
+      const updatedData = {
+        nombre: name,
+        carrera: career,
+        telefono: phoneNumber,
+        // Si hay una nueva foto de perfil, se actualizaría
+        fotoPerfil: profileImage ? profileImage.name : null,  // Solo si se sube una imagen
+      };
+
+      // Usamos updateDoc para actualizar solo los campos modificados
+      await updateDoc(userRef, updatedData); 
+      
+      console.log("Perfil actualizado correctamente");
+
+      // Redirigir a la página principal o cualquier otra que necesites
+      navigate("/main");
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error);
+    }
   };
 
   return (
@@ -90,6 +135,7 @@ const UpdateProfileStudent = () => {
           Guardar Perfil
         </button>
       </div>
+      <BottomNav />
     </div>
   );
 };

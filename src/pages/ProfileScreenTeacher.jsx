@@ -1,31 +1,42 @@
-import React from "react";
-import { useNavigate } from "react-router-dom"; // Importar el hook useNavigate
-import BottomNav from "../components/BottomNavTeacher"; // Importa el componente BottomNav
-
-// Simulación de datos del docente
-const profileData = {
-  username: "johndoe123",
-  fullName: "John Doe",
-  phone: "+1234567890",
-  career: "Ingeniería de Sistemas",
-  specialization: "Desarrollo Web , Desarrollo Movil", // Área de especialización añadida
-  profileImage: "https://placeimg.com/150/150/people", // Imagen de perfil simulada
-};
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { db } from "/src/services/firebase"; // Asegúrate de importar correctamente
+import { getAuth } from "firebase/auth"; 
+import { getDoc, doc } from "firebase/firestore"; 
+import logo from "../assets/logo.png"; 
+import personImage from "../assets/person.png"; 
+import BottomNavTeacher from "../components/BottomNavTeacher";
 
 const ProfileScreenTeacher = () => {
-  const navigate = useNavigate(); // Usar el hook useNavigate para navegar entre pantallas
+  const navigate = useNavigate();
+  const [teacherData, setTeacherData] = useState(null); // Estado para almacenar los datos del docente
 
-  // Función para manejar la redirección cuando se hace clic en "Editar Perfil"
-  const handleEditProfile = () => {
-    navigate("/UpdateProfileTeacher"); // Redirige al UpdateProfileTeacher
-  };
+  useEffect(() => {
+    const user = getAuth().currentUser; // Asegúrate de que la sesión esté activa
+    if (user) {
+      const fetchUserData = async () => {
+        const userRef = doc(db, "usuarios", user.uid); // Usamos el UID del usuario logueado para obtener los datos
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          console.log("teacherData: ", data); // Agrega este log para verificar los datos
+          setTeacherData(data); // Establece los datos del docente en el estado
+        }
+      };
+      fetchUserData();
+    }
+  }, []); // Se ejecuta solo una vez cuando el componente se monta
+
+  if (!teacherData) {
+    return <div>Loading...</div>; // Mostrar un mensaje mientras se cargan los datos
+  }
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.profileContainer}>
         {/* Imagen de perfil */}
         <img
-          src={profileData.profileImage}
+          src={teacherData.fotoPerfil || personImage} // Si no tiene foto, muestra la imagen predeterminada
           alt="Profile"
           style={styles.profileImage}
         />
@@ -33,38 +44,33 @@ const ProfileScreenTeacher = () => {
           <h2 style={styles.profileTitle}>Mi Perfil</h2>
           <div style={styles.infoContainer}>
             <p style={styles.profileText}>
-              <strong>Nombre de usuario:</strong>
-              <span style={styles.profileValue}> {profileData.username}</span>
-            </p>
-            <p style={styles.profileText}>
               <strong>Nombre completo:</strong>
-              <span style={styles.profileValue}> {profileData.fullName}</span>
+              <span style={styles.profileValue}> {teacherData.nombre}</span>
             </p>
             <p style={styles.profileText}>
               <strong>Teléfono:</strong>
-              <span style={styles.profileValue}> {profileData.phone}</span>
+              <span style={styles.profileValue}> {teacherData.telefono}</span>
             </p>
             <p style={styles.profileText}>
               <strong>Carrera:</strong>
-              <span style={styles.profileValue}> {profileData.career}</span>
+              <span style={styles.profileValue}> {teacherData.carrera}</span>
             </p>
             <p style={styles.profileText}>
               <strong>Áreas de Especialización:</strong>
-              <span style={styles.profileValue}> {profileData.specialization}</span> {/* Área de especialización añadida */}
+              <span style={styles.profileValue}> {teacherData.especializaciones.join(", ")}</span>
             </p>
           </div>
           {/* Botón de editar perfil que redirige a la página de actualización */}
-          <button style={styles.editProfileButton} onClick={handleEditProfile}>
+          <button style={styles.editProfileButton} onClick={() => navigate("/UpdateProfileTeacher")}>
             Editar Perfil
           </button>
         </div>
       </div>
-
-      {/* Mantener el BottomNav */}
-      <BottomNav />
+      <BottomNavTeacher />
     </div>
   );
 };
+
 const styles = {
   wrapper: {
     backgroundColor: "#0a0a0a",

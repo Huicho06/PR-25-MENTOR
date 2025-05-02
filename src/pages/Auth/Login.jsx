@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../services/firebase"
+import { auth,db } from "../../services/firebase"
+import { doc, getDoc } from "firebase/firestore";
 import logo from "../../assets/logo.png"; // Ajusta la ruta según la estructura de carpetas
 
 const Login = () => {
@@ -11,10 +12,37 @@ const Login = () => {
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
+    if (!email || !password) {
+      setError("Por favor, ingrese correo y contraseña.");
+      return;
+    }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("Inicio de sesión exitoso");
-      navigate("/home"); // Redirigir a la página principal
+      // Iniciar sesión con el correo y la contraseña
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user; // El usuario autenticado
+
+      // Verificar si el perfil está completo en Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // Verificar si el perfil está completo
+        if (!userData.perfilCompletado) {
+          // Si el perfil no está completo, redirigir a la pantalla de creación de perfil
+          navigate("/home"); // Si el perfil no está completo, redirigir a "home"
+        } else {
+          // Si el perfil está completo, redirigir a la página correspondiente
+          if (userData.tipo === "student") {
+            navigate("/main"); // Si es estudiante, ir a "main"
+          } else {
+            navigate("/mainTeacher"); // Si es docente, ir a "mainTeacher"
+          }
+        }
+      } else {
+        setError("No se encontró el perfil del usuario.");
+      }
     } catch (err) {
       setError("Correo o contraseña incorrectos.");
       console.error("Error al iniciar sesión:", err);

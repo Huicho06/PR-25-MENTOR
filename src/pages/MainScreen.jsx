@@ -1,147 +1,181 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "/src/services/firebase"; // Firebase Firestore
+import { getAuth } from "firebase/auth"; // Importar Firebase Auth
+import { getDocs, collection, query, where, addDoc, serverTimestamp } from "firebase/firestore"; // Métodos para obtener datos y agregar nuevos
 import logo from "../assets/logo.png"; // Logo de la app
-import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
-import { FiFilter } from "react-icons/fi"; // Para el nuevo icono de filtro
-import BottomNav from "../components/BottomNav"; // Importa el componente BottomNav
-import Navbar from "../components/MainNavbar"; // Importa el componente BottomNav
+
+import personImage from "../assets/person.png"; // Imagen de perfil predeterminada
+import { FaBell, FaUser } from "react-icons/fa"; // Iconos de campanita y usuario
+import { FiFilter } from "react-icons/fi"; // Icono de filtro
+import BottomNav from "../components/BottomNav"; // Componente de navegación inferior
+import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
+
 
 const MainScreen = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [mentors, setMentors] = useState([
-    { name: "Ramal Cart", specialization: "Graphic Design", career: "Engineering" },
-    { name: "Mary Jones", specialization: "Web Design", career: "Architecture" },
-    { name: "Angela Mohammed", specialization: "UX/UI Design", career: "Engineering" },
-    { name: "Siya Dhawal", specialization: "Graphic Design", career: "Design" },
-    { name: "Camila Liam", specialization: "Illustration", career: "Arts" },
-  ]); // Simulación de datos de mentores
+  const [searchTerm, setSearchTerm] = useState(""); // Término de búsqueda
+  const [mentors, setMentors] = useState([]); // Estado para almacenar los mentores
+  const [filteredMentors, setFilteredMentors] = useState([]); // Mentores filtrados
+  const [selectedCareer, setSelectedCareer] = useState(""); // Carrera seleccionada
+  const [selectedSpecialization, setSelectedSpecialization] = useState(""); // Especialización seleccionada
+  const [selectedMentorId, setSelectedMentorId] = useState(null); // Estado para guardar el mentorId
 
-  const [isModalOpen, setIsModalOpen] = useState(false); // Estado para controlar la visibilidad del modal
-  const [message, setMessage] = useState(""); // Estado para el mensaje
-  const [file, setFile] = useState(null); // Estado para el archivo adjunto
-  const [selectedCareer, setSelectedCareer] = useState(""); // Estado para la carrera seleccionada
-  const [selectedSpecialization, setSelectedSpecialization] = useState(""); // Estado para el área de especialización
+
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false); // Estado para el modal de notificaciones
+  const [isModalOpen, setIsModalOpen] = useState(false); // Estado para el modal de solicitud
+  const [message, setMessage] = useState(""); // Estado para el mensaje de la solicitud
+  const [file, setFile] = useState(null); // Estado para el archivo adjunto
 
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        // Consulta para obtener solo los usuarios de tipo teacher
+        const mentorsQuery = query(
+          collection(db, "usuarios"),
+          where("tipo", "==", "teacher") // Filtramos por tipo "teacher"
+        );
+        
+        const mentorsSnapshot = await getDocs(mentorsQuery);
+      const mentorsList = mentorsSnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id, // Guardamos el ID del documento de Firestore
+      }));
+        setMentors(mentorsList); // Establecer los mentores en el estado
+        setFilteredMentors(mentorsList); // Establecer los mentores filtrados inicialmente
+      } catch (error) {
+        console.error("Error al obtener los mentores:", error);
+      }
+    };
+
+    fetchMentors();
+  }, []);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  const filteredMentors = mentors.filter((mentor) => {
+  const handleCareerChange = (e) => {
+    setSelectedCareer(e.target.value);
+  };
+
+  const handleSpecializationChange = (e) => {
+    setSelectedSpecialization(e.target.value);
+  };
+
+  // Filtrar mentores
+  const filteredMentorsList = mentors.filter((mentor) => {
     return (
-      mentor.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (selectedCareer ? mentor.career === selectedCareer : true) &&
-      (selectedSpecialization ? mentor.specialization === selectedSpecialization : true)
+      mentor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      (selectedCareer ? mentor.carrera === selectedCareer : true) &&
+      (selectedSpecialization ? mentor.especializaciones?.includes(selectedSpecialization) : true)
     );
   });
 
-  const handleViewProfile = () => {
-    navigate("/ProfileScreen"); // Redirige al perfil
+  const handleViewProfile = (mentorId) => {
+    navigate(`/mentor/${mentorId}`); // Redirige al perfil del mentor
   };
 
   // Maneja la apertura del modal de solicitud
-  const handleOpenModal = () => {
+  const handleOpenModal = (mentorId) => {
+    setSelectedMentorId(mentorId); // Guardamos el mentorId seleccionado
     setIsModalOpen(true);
   };
 
-  // Maneja el cierre del modal
+  // Maneja el cierre del modal de solicitud
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
 
   // Maneja el envío del formulario en el modal
-  const handleSendRequest = () => {
-    console.log("Mensaje:", message);
-    console.log("Archivo adjunto:", file);
-    setIsModalOpen(false); // Cierra el modal después de enviar
-  };
+  const handleSendRequest = async (mentorId) => {
+    if (!selectedMentorId) {
+      console.error("No mentor selected");
+      return;
+    }
 
-  // Maneja la apertura del modal de notificaciones
-  const handleOpenNotificationModal = () => {
-    setIsNotificationModalOpen(true); // Abre el modal de notificaciones
-  };
+    try {
+      const docRef = await addDoc(collection(db, "solicitudes"), {
+        mensaje: message,
+        estado: "pendiente",
+        estudiante_uid: getAuth().currentUser.uid,
+        tutor_uid: selectedMentorId,
+        timestamp: serverTimestamp(),
+      });
 
-  // Maneja el cierre del modal de notificaciones
-  const handleCloseNotificationModal = () => {
-    setIsNotificationModalOpen(false); // Cierra el modal de notificaciones
+      console.log("Solicitud enviada con éxito: ", docRef.id);
+      setIsModalOpen(false); // Cierra el modal después de enviar
+    } catch (error) {
+      console.error("Error al enviar la solicitud: ", error);
+    }
   };
 
   return (
     <div style={styles.wrapper}>
       <Navbar />
+=======
+      <div style={styles.navBar}>
+        <img src={logo} alt="Logo Mentor" style={styles.logo} />
+        <div style={styles.rightNav}>
+          <FaBell style={styles.bellIcon} onClick={() => setIsNotificationModalOpen(true)} />
+          <FaUser style={styles.userIcon} onClick={() => navigate("/profileScreen")} />
+          <BottomNavLogout />
+        </div>
+      </div>
 
       <div style={styles.container}>
-        {/* Barra de búsqueda */}
         <div style={styles.searchContainer}>
           <input
             type="text"
-            placeholder="Search Mentors"
+            placeholder="Buscar Mentores"
             value={searchTerm}
             onChange={handleSearchChange}
             style={styles.searchInput}
           />
         </div>
 
-        {/* Filtros: Carrera y Especialización */}
         <div style={styles.filterContainer}>
           <div>
-            <label style={styles.filterLabel}>Carrera:  </label>
-            <select
-              value={selectedCareer}
-              onChange={(e) => setSelectedCareer(e.target.value)}
-              style={styles.selectInput}
-            >
+            <label style={styles.filterLabel}>Carrera: </label>
+            <select value={selectedCareer} onChange={handleCareerChange} style={styles.selectInput}>
               <option value="">Selecciona una carrera</option>
-              <option value="Engineering">Ingeniería</option>
-              <option value="Arts">Artes</option>
-              <option value="Design">Diseño</option>
-              <option value="Architecture">Arquitectura</option>
+              <option value="Ingeniería en Sistemas Informáticos">Ingeniería en Sistemas Informáticos</option>
+              <option value="Ingeniería Biomédica">Ingeniería Biomédica</option>
+              <option value="Ingeniería de Telecomunicaciones">Ingeniería de Telecomunicaciones</option>
+              <option value="Ingeniería Electrónica">Ingeniería Electrónica</option>
             </select>
           </div>
 
           <div>
-            <label style={styles.filterLabel}>Área de Especialización:  </label>
-            <select
-              value={selectedSpecialization}
-              onChange={(e) => setSelectedSpecialization(e.target.value)}
-              style={styles.selectInput}
-            >
+            <label style={styles.filterLabel}>Especialización: </label>
+            <select value={selectedSpecialization} onChange={handleSpecializationChange} style={styles.selectInput}>
               <option value="">Selecciona una especialización</option>
-              <option value="Graphic Design">Diseño Gráfico</option>
-              <option value="Web Design">Diseño Web</option>
-              <option value="UX/UI Design">UX/UI</option>
-              <option value="Illustration">Ilustración</option>
+              <option value="Ingeniería de Software">Ingeniería de Software</option>
+              <option value="Redes y Comunicaciones">Redes y Comunicaciones</option>
+              <option value="Inteligencia Artificial">Inteligencia Artificial</option>
+              <option value="Seguridad Informática">Seguridad Informática</option>
             </select>
           </div>
         </div>
 
-        {/* Resultados */}
         <div style={styles.resultContainer}>
-          <div style={styles.mentorList}>
-            {filteredMentors.map((mentor, index) => (
-              <div key={index} style={styles.mentorCard}>
-                <img
-                  src={"../assets/logo.png"}
-                  alt={mentor.name}
-                  style={styles.mentorImage}
-                />
-                <div style={styles.mentorInfo}>
-                  <h3 style={styles.mentorName}>{mentor.name}</h3>
-                  <p style={styles.mentorSpecialization}>{mentor.specialization}</p>
-                </div>
-                <button style={styles.requestButton} onClick={handleOpenModal}>
-                  Enviar Solicitud
-                </button>
+          {filteredMentorsList.map((mentor, index) => (
+            <div key={index} style={styles.mentorCard}>
+              <img src={personImage} alt={mentor.nombre} style={styles.mentorImage} />
+              <div style={styles.mentorInfo}>
+                <h3 style={styles.mentorName}>{mentor.nombre}</h3>
+                <p style={styles.mentorSpecialization}>{mentor.especializaciones.join(', ')}</p>
               </div>
-            ))}
-          </div>
+              <button style={styles.requestButton} onClick={() => handleOpenModal(mentor.id)}>
+                Enviar Solicitud
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
- {/* Modal para enviar solicitud */}
- {isModalOpen && (
+      {/* Modal para enviar solicitud */}
+      {isModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
             <h2>Enviar Solicitud</h2>
@@ -169,9 +203,25 @@ const MainScreen = () => {
           </div>
         </div>
       )}
-      
 
-      {/* Agregar el BottomNav aquí */}
+
+      {/* Modal de notificaciones */}
+      {isNotificationModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.notificationModal}>
+            <h2>Notificaciones</h2>
+            <div style={styles.notificationContent}>
+              <div style={styles.notificationItem}>
+                <p>¡Tienes una nueva solicitud!</p>
+              </div>
+            </div>
+            <button onClick={() => setIsNotificationModalOpen(false)} style={styles.modalButton2}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
@@ -190,8 +240,8 @@ const styles = {
     padding: "10px",
     borderRadius: "8px",
     marginBottom: "15px",
-    backgroundColor: "#333", // Fondo oscuro
-    color: "#fff", // Color del texto
+    backgroundColor: "#333",
+    color: "#fff",
     border: "1px solid #ccc",
   },
   filterContainer: {
@@ -221,12 +271,13 @@ const styles = {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
-    marginRight: "20px", // Espaciado entre los iconos
+    marginRight: "20px",
   },
   userIcon: {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
+    marginRight: "20px"
   },
   container: {
     padding: "20px",
@@ -238,7 +289,7 @@ const styles = {
     borderRadius: "30px",
     padding: "5px 15px",
     marginBottom: "30px",
-    justifyContent: "space-between", // Ajuste para que el filtro se acomode al lado derecho
+    justifyContent: "space-between",
   },
   searchInput: {
     padding: "10px 20px",
@@ -252,11 +303,6 @@ const styles = {
     padding: "20px",
     backgroundColor: "#1a1a1a",
     borderRadius: "8px",
-  },
-  mentorList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
   },
   mentorCard: {
     display: "flex",
@@ -321,13 +367,13 @@ const styles = {
     width: "80%",
     maxWidth: "400px",
     color: "#fff",
-    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)", // Sombra para resaltar el modal
+    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)",
   },
   notificationContent: {
     marginBottom: "15px",
   },
   notificationItem: {
-    backgroundColor: "#333", // Fondo de cada notificación
+    backgroundColor: "#333",
     padding: "15px",
     borderRadius: "10px",
     marginBottom: "10px",
@@ -338,7 +384,7 @@ const styles = {
   notificationIcon: {
     width: "15px",
     height: "15px",
-    backgroundColor: "#1ed760", // Un icono circular para las notificaciones
+    backgroundColor: "#1ed760",
     borderRadius: "50%",
     marginRight: "15px",
   },

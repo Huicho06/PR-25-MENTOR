@@ -1,27 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png"; // Logo de la app
+import { db } from "/src/services/firebase";  // Importar desde el archivo firebase.js
+import { getAuth } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";  // Para leer y escribir en Firestore
+import logo from "../assets/logo.png";  // Logo de la app
 
-const CreateProfile = () => {
+const CreateProfileTeacher = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [career, setCareer] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [profileImage, setProfileImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [specializations, setSpecializations] = useState([]);
+  const auth = getAuth();  // Obtener la autenticación de Firebase
+  const [name, setName] = useState("");  // Nombre del docente
+  const [career, setCareer] = useState("");  // Carrera
+  const [phoneNumber, setPhoneNumber] = useState("");  // Teléfono
+  const [specializations, setSpecializations] = useState([]);  // Áreas de especialización
+  const [imagePreview, setImagePreview] = useState(null); // Vista previa de la imagen
+  const [userData, setUserData] = useState(null);  // Para almacenar los datos del usuario
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setProfileImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
+  // Cargar los datos del usuario al iniciar la página
+  useEffect(() => {
+    const user = auth.currentUser;  // Obtener el usuario autenticado
+    if (user) {
+      const fetchUserData = async () => {
+        const userRef = doc(db, "usuarios", user.uid);  // Obtener datos del usuario en Firestore
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());  // Guardar los datos en el estado
+          setName(userDoc.data().nombre || "");  // Asignar el nombre al estado
+          setCareer(userDoc.data().carrera || "");
+          setPhoneNumber(userDoc.data().telefono || "");
+        }
       };
-      reader.readAsDataURL(file);
+      fetchUserData();  // Ejecutar la función para cargar los datos
     }
-  };
+  }, [auth]);
 
   const handleSpecializationsChange = (e) => {
     const { value, checked } = e.target;
@@ -35,10 +45,29 @@ const CreateProfile = () => {
     }
   };
 
-  const handleSubmit = () => {
-    // Aquí podrías agregar la lógica para guardar el perfil
-    console.log({ name, career, phoneNumber, profileImage, specializations });
-    navigate("/main"); // Redirige a la pantalla principal
+  const handleSubmit = async () => {
+    try {
+      const user = auth.currentUser;  // Obtener el usuario logueado
+
+      // Actualizar los datos del perfil en Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      const updatedData = {
+        nombre: name,
+        carrera: career,
+        telefono: phoneNumber,
+        especializaciones: specializations,  // Guardar especializaciones
+        perfilCompletado: true,  // Cambiar a `true` cuando el perfil esté completado
+      };
+
+      await setDoc(userRef, updatedData, { merge: true });  // Merge para no sobrescribir los otros datos
+      console.log("Perfil actualizado correctamente");
+
+      // Redirigir al usuario a la página principal correspondiente
+      navigate("/mainTeacher");  // Redirigir a la vista de tutor
+
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error);
+    }
   };
 
   return (
@@ -55,24 +84,20 @@ const CreateProfile = () => {
           style={styles.input}
           placeholder="Nombre"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}  // Asignar el valor del nombre
         />
 
         {/* Campo de carrera (Combobox) */}
         <select
           style={styles.input}
           value={career}
-          onChange={(e) => setCareer(e.target.value)}
+          onChange={(e) => setCareer(e.target.value)}  // Asignar el valor de la carrera
         >
           <option value="" disabled>Selecciona tu carrera</option>
-          <option value="Ingeniería en Sistemas Informáticos">
-            Ingeniería en Sistemas Informáticos
-          </option>
+          <option value="Ingeniería en Sistemas Informáticos">Ingeniería en Sistemas Informáticos</option>
           <option value="Ingeniería Biomédica">Ingeniería Biomédica</option>
           <option value="Ingeniería Electrónica">Ingeniería Electrónica</option>
-          <option value="Ingeniería de Telecomunicaciones">
-            Ingeniería de Telecomunicaciones
-          </option>
+          <option value="Ingeniería de Telecomunicaciones">Ingeniería de Telecomunicaciones</option>
         </select>
 
         {/* Campo de teléfono */}
@@ -80,21 +105,34 @@ const CreateProfile = () => {
           style={styles.input}
           placeholder="Número de teléfono"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChange={(e) => setPhoneNumber(e.target.value)}  // Asignar el valor del teléfono
         />
 
-        {/* Subir foto de perfil */}
+        {/* Mostrar imagen de perfil */}
+        <div style={styles.previewImageContainer}>
+          {imagePreview ? (
+            <img src={imagePreview} alt="Vista previa" style={styles.previewImage} />
+          ) : (
+            <p>No hay imagen seleccionada.</p>
+          )}
+        </div><br></br><br></br>
+
+        {/* Campo para subir foto de perfil (sin funcionalidad) */}
         <input
           type="file"
           accept="image/*"
           style={styles.fileInput}
-          onChange={handleImageChange}
-        />
-
-        {/* Vista previa de la imagen */}
-        {imagePreview && (
-          <img src={imagePreview} alt="Vista previa" style={styles.previewImage} />
-        )}
+          onChange={(e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                setImagePreview(reader.result);
+              };
+              reader.readAsDataURL(file);  // Mostrar la imagen seleccionada
+            }
+          }}
+        /><br></br><br></br>
 
         {/* Campo para áreas de especialización */}
         <div style={styles.checkboxSection}>
@@ -196,21 +234,6 @@ const styles = {
     border: "none",
     marginBottom: 20,
   },
-  fileInput: {
-    width: "100%",
-    padding: "12px",
-    borderRadius: "8px",
-    backgroundColor: "#1a1a1a",
-    color: "#fff",
-    border: "none",
-    marginBottom: 20,
-  },
-  previewImage: {
-    width: "100px",
-    height: "100px",
-    borderRadius: "50%",
-    marginBottom: 20,
-  },
   checkboxSection: {
     marginBottom: 20,
   },
@@ -247,4 +270,4 @@ const styles = {
   },
 };
 
-export default CreateProfile;
+export default CreateProfileTeacher;
