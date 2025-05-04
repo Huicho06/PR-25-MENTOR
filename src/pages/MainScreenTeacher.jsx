@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png"; // Logo de la app
 import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
 import BottomNavTeacher from "../components/BottomNavTeacher"; // Importa el componente BottomNav
+import MainNavbar from "../components/MainNavbar"; // Importa el componente BottomNav
+
 import personImage from "../assets/person.png"; 
 import BottomNavLogout from "../components/SignOut";
 
@@ -87,18 +89,7 @@ const MainScreenTeacher = () => {
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.navBar}>
-        {/* Logo */}
-        <img src={logo} alt="Logo Mentor" style={styles.logo} />
-        <div style={styles.rightNav}>
-          <FaBell
-            style={styles.bellIcon}
-            onClick={handleOpenNotificationModal} // Abre el modal de notificaciones
-          />
-          <FaUser style={styles.userIcon} onClick={handleViewProfile} />
-          <BottomNavLogout />
-        </div>
-      </div>
+      <MainNavbar />
 
       <div style={styles.container}>
         <div style={styles.Solicitudes}>

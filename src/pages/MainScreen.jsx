@@ -4,12 +4,11 @@ import { db } from "/src/services/firebase"; // Firebase Firestore
 import { getAuth } from "firebase/auth"; // Importar Firebase Auth
 import { getDocs, collection, query, where, addDoc, serverTimestamp } from "firebase/firestore"; // Métodos para obtener datos y agregar nuevos
 import logo from "../assets/logo.png"; // Logo de la app
-
+import MainNavbar from "../components/MainNavbar"; // Importa el componente BottomNav
 import personImage from "../assets/person.png"; // Imagen de perfil predeterminada
 import { FaBell, FaUser } from "react-icons/fa"; // Iconos de campanita y usuario
 import { FiFilter } from "react-icons/fi"; // Icono de filtro
 import BottomNav from "../components/BottomNav"; // Componente de navegación inferior
-import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
 
 
 const MainScreen = () => {
@@ -26,7 +25,9 @@ const MainScreen = () => {
   const [isModalOpen, setIsModalOpen] = useState(false); // Estado para el modal de solicitud
   const [message, setMessage] = useState(""); // Estado para el mensaje de la solicitud
   const [file, setFile] = useState(null); // Estado para el archivo adjunto
-
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [project, setProject] = useState(null); // null si no hay proyecto
+  
   useEffect(() => {
     const fetchMentors = async () => {
       try {
@@ -62,6 +63,7 @@ const MainScreen = () => {
   const handleSpecializationChange = (e) => {
     setSelectedSpecialization(e.target.value);
   };
+  const [showMemberResults, setShowMemberResults] = useState(false);
 
   // Filtrar mentores
   const filteredMentorsList = mentors.filter((mentor) => {
@@ -112,16 +114,8 @@ const MainScreen = () => {
 
   return (
     <div style={styles.wrapper}>
-      <Navbar />
-=======
-      <div style={styles.navBar}>
-        <img src={logo} alt="Logo Mentor" style={styles.logo} />
-        <div style={styles.rightNav}>
-          <FaBell style={styles.bellIcon} onClick={() => setIsNotificationModalOpen(true)} />
-          <FaUser style={styles.userIcon} onClick={() => navigate("/profileScreen")} />
-          <BottomNavLogout />
-        </div>
-      </div>
+
+<MainNavbar />
 
       <div style={styles.container}>
         <div style={styles.searchContainer}>
@@ -221,6 +215,66 @@ const MainScreen = () => {
           </div>
         </div>
       )}
+{/* Botón flotante para ver o agregar proyecto */}
+<button onClick={() => setIsProjectModalOpen(true)} style={styles.projectFabButton}>
+  📁
+</button>
+
+{/* Modal para mostrar o agregar proyecto */}
+{isProjectModalOpen && (
+  <div style={styles.modalOverlay}>
+    <div style={styles.modal}>
+      {project ? (
+        <>
+          <h2>Proyecto Actual</h2>
+          <p><strong>Nombre:</strong> {project.name}</p>
+          <p><strong>Materias Relacionadas:</strong> {project.subjects.join(", ")}</p>
+          <p><strong>Integrantes:</strong> {project.members.join(", ")}</p>
+        </>
+      ) : (
+<>
+  <h2>Agregar Proyecto</h2>
+
+  <input type="text" placeholder="Nombre del proyecto" style={styles.modalInput} />
+
+  {/* ComboBox con materias */}
+  <div style={{ ...styles.modalInput, padding: 0, border: "none" }}>
+    <label style={{ marginBottom: "5px", display: "block", fontWeight: "bold" }}>Materias relacionadas</label>
+    <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#333", padding: "10px", borderRadius: "8px" }}>
+      <label><input type="checkbox" /> Procesamiento Digital de Imágenes</label>
+      <label><input type="checkbox" /> Proyecto de Sistemas II</label>
+      <label><input type="checkbox" /> Data Warehousing</label>
+    </div>
+  </div>
+
+  {/* Búsqueda simulada de integrantes */}
+  <input
+    type="text"
+    placeholder="Buscar integrantes..."
+    style={styles.modalInput}
+    onFocus={() => setShowMemberResults(true)}
+  />
+  {showMemberResults && (
+    <div style={{
+      backgroundColor: "#444",
+      borderRadius: "8px",
+      padding: "10px",
+      color: "#fff",
+      marginBottom: "10px",
+    }}>
+      <p>👤 Juan Pérez</p>
+      <p>👤 Ana Gómez</p>
+    </div>
+  )}
+
+  <button style={styles.modalButton1}>Agregar Proyecto</button>
+</>
+
+      )}
+      <button style={styles.modalButton2} onClick={() => setIsProjectModalOpen(false)}>Cerrar</button>
+    </div>
+  </div>
+)}
 
       <BottomNav />
     </div>
@@ -313,6 +367,7 @@ const styles = {
     color: "#fff",
     width: "100%",
     justifyContent: "space-between",
+    marginBottom: "20px",
   },
   mentorImage: {
     width: "60px",
@@ -425,6 +480,7 @@ const styles = {
     backgroundColor: "#1ed760",
     color: "#fff",
     border: "none",
+    marginRight: "10px",
   },
   modalButton2: {
     padding: "10px 20px",
@@ -434,6 +490,34 @@ const styles = {
     color: "#fff",
     border: "none",
   },
+  projectFabButton: {
+    position: "fixed",
+    bottom: "100px",
+    right: "20px",
+    backgroundColor: "#1ed760",
+    border: "none",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
+    fontSize: "22px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+    cursor: "pointer",
+    boxShadow: "0px 4px 10px rgba(0,0,0,0.4)",
+    zIndex: 999,
+  },
+  modalInput: {
+    padding: "10px",
+    marginBottom: "20px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+    backgroundColor: "#333",
+    color: "#fff",
+    width: "100%",
+  }
+  
 };
 
 export default MainScreen;

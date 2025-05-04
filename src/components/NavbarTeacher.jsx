@@ -15,18 +15,18 @@ const Navbar = () => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === "chat") {
-      navigate("/ChatScreen"); // Redirige a la pantalla de chat
+      navigate("/ChatScreenTeacher"); // Redirige a la pantalla de chat
     } else if (tab === "tasks") {
-      navigate("/TaskScreen"); // Redirige a la pantalla de tareas
+      navigate("/TaskScreenTeacher"); // Redirige a la pantalla de tareas
     }
   };
 
   // Usar useEffect para actualizar el estado cuando la ruta cambie
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.includes("TaskScreen")) {
+    if (path.includes("TaskScreenTeacher")) {
       setActiveTab("tasks");
-    } else if (path.includes("ChatScreen")) {
+    } else if (path.includes("ChatScreenTeacher")) {
       setActiveTab("chat");
     }
   }, [window.location.pathname]);

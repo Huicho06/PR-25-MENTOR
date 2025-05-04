@@ -1,82 +1,70 @@
-import React, { useState } from "react";
-import logo from "../assets/logo.png"; // Logo de la app
-import { FaBell, FaUser } from "react-icons/fa"; // Para los iconos de la campanita y el usuario
-
-import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
-
-import { useNavigate } from "react-router-dom"; // Para la navegación
+import React, { useState, useRef, useEffect } from "react";
+import logo from "../assets/logo.png";
+import { FaBell, FaUser } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const modalRef = useRef(null); // Referencia para detectar clics fuera
 
-  const [activeTab, setActiveTab] = useState("chat"); // Estado para manejar qué botón está activo
-  const [searchTerm, setSearchTerm] = useState(""); // Para la barra de búsqueda
-  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false); // Estado para el modal de notificaciones
-
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+  const handleViewProfile = () => {
+    navigate("/ProfileScreen");
   };
 
-  // Función para cambiar el estado del botón activo
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
+  const toggleNotificationModal = () => {
+    setIsNotificationModalOpen((prev) => !prev);
   };
 
-    // Maneja la apertura del modal de notificaciones
-    const handleOpenNotificationModal = () => {
-      console.log("abriendo modal");
-      
-      setIsNotificationModalOpen(true); // Abre el modal de notificaciones
+  // Cerrar modal al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (modalRef.current && !modalRef.current.contains(e.target)) {
+        setIsNotificationModalOpen(false);
+      }
     };
-  
-    // Maneja el cierre del modal de notificaciones
-    const handleCloseNotificationModal = () => {
-      setIsNotificationModalOpen(false); // Cierra el modal de notificaciones
+
+    if (isNotificationModalOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-    const handleViewProfile = () => {
-      navigate("/ProfileScreen"); // Redirige al perfil
-    };
-  
-  // Estado de las notificaciones
-  const [notifications, setNotifications] = useState([
+  }, [isNotificationModalOpen]);
+
+  const [notifications] = useState([
     { id: 1, message: "Nueva solicitud de mentoría de Ramal Cart" },
     { id: 2, message: "Has recibido un mensaje de Mary Jones" },
     { id: 3, message: "Angela Mohammed actualizó su perfil" },
   ]);
 
-  
   return (
-      <div style={styles.navBar}>
-        {/* Logo */}
-        <img src={logo} alt="Logo Mentor" style={styles.logo} />
-        <div style={styles.rightNav}>
-          <FaBell
-            style={styles.bellIcon}
-            onClick={handleOpenNotificationModal} // Abre el modal de notificaciones al hacer clic en el icono
-          />
-          {/* Botón de usuario para redirigir al perfil */}
-          <FaUser style={styles.userIcon} onClick={handleViewProfile} />
-        </div>
-        {/* Modal de notificaciones */}
-      {isNotificationModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.notificationModal}>
-            <h2>Notificaciones</h2>
-            <div style={styles.notificationContent}>
-              {notifications.map((notification) => (
-                <div key={notification.id} style={styles.notificationItem}>
-                  <div style={styles.notificationIcon}></div>
-                  <p style={styles.notificationMessage}>{notification.message}</p>
-                </div>
-              ))}
+    <div style={styles.navBar}>
+      <img src={logo} alt="Logo Mentor" style={styles.logo} />
+      <div style={styles.rightNav}>
+        <div style={{ position: "relative" }}>
+          <FaBell style={styles.bellIcon} onClick={toggleNotificationModal} />
+          {isNotificationModalOpen && (
+            <div ref={modalRef} style={styles.notificationModal}>
+              <h2 style={{ marginTop: 0 }}>Notificaciones</h2>
+              <div style={styles.notificationContent}>
+                {notifications.map((notification) => (
+                  <div key={notification.id} style={styles.notificationItem}>
+                    <div style={styles.notificationIcon}></div>
+                    <p style={styles.notificationMessage}>{notification.message}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <button onClick={handleCloseNotificationModal} style={styles.modalButton2}>
-              Cerrar
-            </button>
-          </div>
+          )}
         </div>
-      )}
-      </div>
+        <FaUser style={styles.userIcon} onClick={handleViewProfile} />
+        <BottomNavLogout />
 
+      </div>
+    </div>
   );
 };
 
@@ -98,27 +86,33 @@ const styles = {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
-    marginRight: "20px", // Espaciado entre los iconos
+    marginRight: "20px",
   },
   userIcon: {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
+    marginRight: "20px",
+
   },
   notificationModal: {
+    position: "absolute",
+    top: "30px",
+    right: 0,
     backgroundColor: "#2a2a2a",
     padding: "20px",
     borderRadius: "10px",
-    width: "80%",
-    maxWidth: "400px",
     color: "#fff",
-    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)", // Sombra para resaltar el modal
+    width: "300px",
+    boxShadow: "0px 4px 20px rgba(0,0,0,0.6)",
+    zIndex: 1000,
   },
   notificationContent: {
-    marginBottom: "15px",
+    marginTop: "10px",
   },
+
   notificationItem: {
-    backgroundColor: "#333", // Fondo de cada notificación
+    backgroundColor: "#333",
     padding: "15px",
     borderRadius: "10px",
     marginBottom: "10px",
@@ -129,7 +123,7 @@ const styles = {
   notificationIcon: {
     width: "15px",
     height: "15px",
-    backgroundColor: "#1ed760", // Un icono circular para las notificaciones
+    backgroundColor: "#1ed760",
     borderRadius: "50%",
     marginRight: "15px",
   },

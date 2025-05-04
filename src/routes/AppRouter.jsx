@@ -21,6 +21,15 @@ import UpdateProfileStudent from "../pages/UpdateProfileStudent";
 import ProfileScreen from "../pages/ProfileScreen";
 import ProfileScreenTeacher from "../pages/ProfileScreenTeacher";
 import ChatScreen from "../pages/ChatScreen";
+import ChatScreenTeacher from "../pages/ChatScreenTeacher";
+import TaskScreen from "../pages/TaskScreen";
+import TaskScreenTeacher from "../pages/TaskScreenTeacher";
+
+import GroupChat from "../pages/GroupChatScreen";
+import CreateTaskTeacher from "../pages/CreateTaskTeacher";
+import DetailsTaskTeacher from "../pages/DetailsTaskTeacher";
+import UpdateTaskTeacher from "../pages/UpdateTaskTeacher";
+import DetailsTaskStudent from "../pages/DetailsTaskStudent";
 
 
 const AppRouter = () => {
@@ -49,6 +58,15 @@ const AppRouter = () => {
         <Route path="/ProfileScreen" element={<ProfileScreen />} />
         <Route path="/ProfileScreenTeacher" element={<ProfileScreenTeacher />} />
         <Route path="/ChatScreen" element={<ChatScreen />} />
+        <Route path="/ChatScreenTeacher" element={<ChatScreenTeacher />} />
+        <Route path="/TaskScreen" element={<TaskScreen />} />
+        <Route path="/TaskScreenTeacher" element={<TaskScreenTeacher />} />
+        <Route path="/GroupChat" element={<GroupChat />} />
+        <Route path="/create-task-teacher" element={<CreateTaskTeacher />} />
+        <Route path="/DetailsTaskTeacher" element={<DetailsTaskTeacher />} />
+        <Route path="/UpdateTaskTeacher" element={<UpdateTaskTeacher />} />
+        <Route path="/DetailsTaskStudent" element={<DetailsTaskStudent />} />
+
       </Routes>
     </BrowserRouter>
   );

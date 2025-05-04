@@ -10,14 +10,19 @@ const BottomNav = () => {
 
   // Cambiar el tab activo según la ruta actual
   useEffect(() => {
-    if (location.pathname.includes("main")) {
+    const path = location.pathname.toLowerCase();
+  
+    if (path === "/main") {
       setActiveTab("home");
-    } else if (location.pathname.includes("ChatScreen")) {
+    } else if (location.pathname.includes("ChatScreen") || location.pathname.includes("TaskScreen")) {
       setActiveTab("chats");
-    } else if (location.pathname.includes("ProfileScreen")) {
+    } else if (path === "/profilescreen") {
       setActiveTab("profile");
+    } else {
+      setActiveTab(null); // Ningún tab está activo
     }
   }, [location]);
+  
 
   // Función para manejar la navegación
   const handleNavigation = (tab) => {

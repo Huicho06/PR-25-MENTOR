@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Para la navegación
 import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
 import { FiMessageCircle } from "react-icons/fi"; // Icono de mensaje
-import BottomNav from "../components/BottomNav"; // Para la barra de navegación
-import Navbar from "../components/Navbar"; // Para la barra de navegación
+import BottomNavT from "../components/BottomNavTeacher"; // Para la barra de navegación
+import NavbarT from "../components/NavbarTeacher"; // Para la barra de navegación
 import MainNavbar from "../components/MainNavbar"; // Para la barra de navegación
 
-const ChatScreen = () => {
+const ChatScreenTeacher = () => {
   const [messages, setMessages] = useState([
     { user: "Natasha", message: "Hi, Good Evening Bro..!", time: "14:59", unread: 3, avatar: "https://placeimg.com/100/100/people" },
     { user: "Mary J", message: "How was your Graphic de..!", time: "06:35", unread: 2, avatar: "https://placeimg.com/100/100/people" },
@@ -38,7 +38,7 @@ const ChatScreen = () => {
   return (
     <div style={styles.wrapper}>
       <MainNavbar />
-      <Navbar />
+      <NavbarT />
       {/* Listado de mensajes */}
       <div style={styles.messageList}>
         {messages
@@ -67,7 +67,7 @@ const ChatScreen = () => {
             </div>
           ))}
       </div>
-      <BottomNav />
+      <BottomNavT />
     </div>
   );
 };
@@ -208,4 +208,4 @@ const styles = {
   },
 };
 
-export default ChatScreen;
+export default ChatScreenTeacher;
