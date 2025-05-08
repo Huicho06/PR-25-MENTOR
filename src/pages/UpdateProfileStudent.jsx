@@ -6,6 +6,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";  // Para obtener y 
 import logo from "../assets/logo.png";
 import BottomNav from "../components/BottomNav";  // Logo de la app
 import personImage from "../assets/person.png";
+import { updateProfile } from "firebase/auth";
 
 const UpdateProfileStudent = () => {
   const navigate = useNavigate();
@@ -52,7 +53,9 @@ const UpdateProfileStudent = () => {
   const handleSubmit = async () => {
     try {
       const user = auth.currentUser; // Obtener el usuario logueado
-
+      await updateProfile(user, {
+        displayName: name // Actualiza el displayName
+      });
       // Actualizar datos en Firestore
       const userRef = doc(db, "usuarios", user.uid);  // Referencia al documento del usuario
       const updatedData = {

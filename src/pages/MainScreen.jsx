@@ -9,6 +9,7 @@ import personImage from "../assets/person.png"; // Imagen de perfil predetermina
 import { FaBell, FaUser } from "react-icons/fa"; // Iconos de campanita y usuario
 import { FiFilter } from "react-icons/fi"; // Icono de filtro
 import BottomNav from "../components/BottomNav"; // Componente de navegación inferior
+import { getDoc,doc,updateDoc } from "firebase/firestore"; // Importar doc
 
 
 const MainScreen = () => {
@@ -26,8 +27,15 @@ const MainScreen = () => {
   const [message, setMessage] = useState(""); // Estado para el mensaje de la solicitud
   const [file, setFile] = useState(null); // Estado para el archivo adjunto
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [project, setProject] = useState(null); // null si no hay proyecto
-  
+  const [projectName, setProjectName] = useState(""); // Estado para el nombre del proyecto
+  const [selectedStudents, setSelectedStudents] = useState([]); // Estado para los estudiantes seleccionados
+  const [selectedStudentsIds, setSelectedStudentsIds] = useState([]);
+  const [showMemberResults, setShowMemberResults] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [project, setProject] = useState(null); 
+
+  const currentUser = getAuth().currentUser;
+  console.log(currentUser);
   useEffect(() => {
     const fetchMentors = async () => {
       try {
@@ -51,6 +59,30 @@ const MainScreen = () => {
 
     fetchMentors();
   }, []);
+  useEffect(() => {
+    // Obtener estudiantes al abrir el modal de agregar proyecto
+    const fetchStudents = async () => {
+      try {
+        const studentsQuery = query(
+          collection(db, "usuarios"),
+          where("tipo", "==", "student")
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const studentsList = studentsSnapshot.docs
+          .map((doc) => ({
+            ...doc.data(),
+            id: doc.id,
+          }))
+          .filter((student) => student.id !== getAuth().currentUser.uid); // Excluir al logueado
+        setStudents(studentsList);
+      } catch (error) {
+        console.error("Error al obtener los estudiantes:", error);
+      }
+    };
+    
+    //fetchMentors();
+    fetchStudents();
+  }, [currentUser]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -63,7 +95,21 @@ const MainScreen = () => {
   const handleSpecializationChange = (e) => {
     setSelectedSpecialization(e.target.value);
   };
-  const [showMemberResults, setShowMemberResults] = useState(false);
+  // Para seleccionar estudiantes en el proyecto
+// Manejar la selección de estudiantes para el proyecto
+const handleSelectStudent = (student) => {
+  if (selectedStudentsIds.includes(student.id)) {
+    // Si ya está seleccionado, lo desmarcamos
+    setSelectedStudents(selectedStudents.filter(id => id !== student.displayName)); // Eliminar nombre
+    setSelectedStudentsIds(selectedStudentsIds.filter(id => id !== student.id)); // Eliminar ID
+  } else {
+    // Si no está seleccionado, lo agregamos
+    setSelectedStudents([...selectedStudents, student.nombre]); // Añadir nombre
+    setSelectedStudentsIds([...selectedStudentsIds, student.id]); // Añadir ID
+  }
+};
+
+
 
   // Filtrar mentores
   const filteredMentorsList = mentors.filter((mentor) => {
@@ -81,36 +127,110 @@ const MainScreen = () => {
   // Maneja la apertura del modal de solicitud
   const handleOpenModal = (mentorId) => {
     setSelectedMentorId(mentorId); // Guardamos el mentorId seleccionado
-    setIsModalOpen(true);
+    // Verificamos si el estudiante ya tiene un proyecto asignado
+    const fetchProject = async () => {
+      try {
+        const userRef = doc(db, "usuarios", getAuth().currentUser.uid); // Correcta referencia al documento del usuario
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+        if (userData.proyecto) {
+          setProject(userData.proyecto); // Si tiene proyecto, lo seteamos
+          setIsModalOpen(true); // Abrimos el modal de solicitud
+        } else {
+          // Si no tiene proyecto, mostramos el modal para agregar proyecto
+          setIsProjectModalOpen(true);
+        }
+      } catch (error) {
+        console.error("Error al obtener el proyecto:", error);
+      }
+    };
+    
+
+    fetchProject();
   };
+
 
   // Maneja el cierre del modal de solicitud
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
 
-  // Maneja el envío del formulario en el modal
-  const handleSendRequest = async (mentorId) => {
-    if (!selectedMentorId) {
-      console.error("No mentor selected");
-      return;
-    }
-
-    try {
-      const docRef = await addDoc(collection(db, "solicitudes"), {
-        mensaje: message,
-        estado: "pendiente",
-        estudiante_uid: getAuth().currentUser.uid,
-        tutor_uid: selectedMentorId,
-        timestamp: serverTimestamp(),
-      });
-
-      console.log("Solicitud enviada con éxito: ", docRef.id);
-      setIsModalOpen(false); // Cierra el modal después de enviar
-    } catch (error) {
-      console.error("Error al enviar la solicitud: ", error);
-    }
+  const handleCloseProjectModal = () => {
+    setIsProjectModalOpen(false);
   };
+ // Enviar la solicitud
+ const handleSendRequest = async () => {
+  if (!project || !project.name || !project.members || project.members.length === 0) {
+    console.error("El proyecto o los miembros no están definidos correctamente.");
+    return; // Detenemos el envío si no hay proyecto válido
+  }
+  try {
+    const docRef = await addDoc(collection(db, "solicitudes"), {
+      mensaje: message,
+      estado: "pendiente",
+      estudiante_uid: getAuth().currentUser.uid,
+      tutor_uid: selectedMentorId,
+      proyecto_nombre: project.name,
+      proyecto_integrantes: project.members,
+      proyecto_integrantes_ids: project.members_ids,
+      timestamp: serverTimestamp(),
+    });
+
+    console.log("Solicitud enviada con éxito: ", docRef.id);
+    setIsModalOpen(false); // Cerrar el modal después de enviar
+  } catch (error) {
+    console.error("Error al enviar la solicitud: ", error);
+  }
+};
+ // Agregar el proyecto
+ const handleAddProject = async () => {
+  if (!projectName || selectedStudentsIds.length === 0) {
+    console.error("Por favor, complete todos los campos.");
+    return;
+  }
+  
+  const allMembers = [
+    getAuth().currentUser.displayName,  // Nombre del estudiante logueado
+    ...selectedStudents.map(studentId => {
+      const student = students.find(s => s.id === studentId);
+      return student ? student.nombre : null; // Aquí obtienes el nombre correctamente
+    }).filter(name => name)  // Filtramos los null
+  ];
+  console.log(getAuth().currentUser.displayName);
+  const allMemberIds = [
+    getAuth().currentUser.uid,  // ID del estudiante logueado
+    ...selectedStudentsIds,  // IDs de los estudiantes seleccionados
+  ];
+  try {
+    //const membersWithLoggedInStudent = [...selectedStudents, getAuth().currentUser.uid]; 
+
+    const projectData = {
+      name: projectName,
+      members: allMembers,
+      members_ids: allMemberIds,
+      timestamp: serverTimestamp(),
+    };
+
+    const docRef = await addDoc(collection(db, "proyectos"), projectData);
+    console.log("Proyecto agregado con éxito: ", docRef.id);
+
+    // Actualizamos el proyecto del estudiante logueado
+    const studentRef = doc(db, "usuarios", getAuth().currentUser.uid);
+    await updateDoc(studentRef, { proyecto: docRef.id });
+
+    // Actualizamos el proyecto de los estudiantes seleccionados
+    for (const studentId of selectedStudentsIds) {
+      const studentRef = doc(db, "usuarios", studentId);
+      await updateDoc(studentRef, { proyecto: docRef.id });
+    }
+
+    setIsProjectModalOpen(false); // Cerrar el modal de proyecto
+  } catch (error) {
+    console.error("Error al agregar el proyecto: ", error);
+  }
+};
+ // Seleccionar estudiantes para el proyecto
+ 
 
   return (
     <div style={styles.wrapper}>
@@ -220,61 +340,47 @@ const MainScreen = () => {
   📁
 </button>
 
-{/* Modal para mostrar o agregar proyecto */}
+{/* Modal para agregar proyecto */}
 {isProjectModalOpen && (
-  <div style={styles.modalOverlay}>
-    <div style={styles.modal}>
-      {project ? (
-        <>
-          <h2>Proyecto Actual</h2>
-          <p><strong>Nombre:</strong> {project.name}</p>
-          <p><strong>Materias Relacionadas:</strong> {project.subjects.join(", ")}</p>
-          <p><strong>Integrantes:</strong> {project.members.join(", ")}</p>
-        </>
-      ) : (
-<>
-  <h2>Agregar Proyecto</h2>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2>Agregar Proyecto</h2>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)} // Actualiza el nombre del proyecto
+              placeholder="Nombre del proyecto"
+              style={styles.modalInput}
+            />
 
-  <input type="text" placeholder="Nombre del proyecto" style={styles.modalInput} />
+            {/* Mostrar estudiantes disponibles */}
+            {/* Mostrar estudiantes disponibles */}
+<div style={{ ...styles.modalInput, padding: 0, border: "none" }}>
+  <label style={{ marginBottom: "5px", display: "block", fontWeight: "bold" }}>
+    Integrantes del Proyecto:
+  </label>
+  {students.map((student, index) => (
+    <label key={index} style={{ display: "block", marginBottom: "10px" }}>
+      <input
+        type="checkbox"
+        onChange={() => handleSelectStudent(student)} // Usamos el handleSelectStudent
+        checked={selectedStudentsIds.includes(student.id)} // Marcamos si ya está seleccionado
+      />
+      {student.nombre}
+    </label>
+  ))}
+</div>
 
-  {/* ComboBox con materias */}
-  <div style={{ ...styles.modalInput, padding: 0, border: "none" }}>
-    <label style={{ marginBottom: "5px", display: "block", fontWeight: "bold" }}>Materias relacionadas</label>
-    <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#333", padding: "10px", borderRadius: "8px" }}>
-      <label><input type="checkbox" /> Procesamiento Digital de Imágenes</label>
-      <label><input type="checkbox" /> Proyecto de Sistemas II</label>
-      <label><input type="checkbox" /> Data Warehousing</label>
-    </div>
-  </div>
 
-  {/* Búsqueda simulada de integrantes */}
-  <input
-    type="text"
-    placeholder="Buscar integrantes..."
-    style={styles.modalInput}
-    onFocus={() => setShowMemberResults(true)}
-  />
-  {showMemberResults && (
-    <div style={{
-      backgroundColor: "#444",
-      borderRadius: "8px",
-      padding: "10px",
-      color: "#fff",
-      marginBottom: "10px",
-    }}>
-      <p>👤 Juan Pérez</p>
-      <p>👤 Ana Gómez</p>
-    </div>
-  )}
-
-  <button style={styles.modalButton1}>Agregar Proyecto</button>
-</>
-
+            <button style={styles.modalButton1} onClick={handleAddProject}>
+              Agregar Proyecto
+            </button>
+            <button style={styles.modalButton2} onClick={handleCloseProjectModal}>
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
-      <button style={styles.modalButton2} onClick={() => setIsProjectModalOpen(false)}>Cerrar</button>
-    </div>
-  </div>
-)}
 
       <BottomNav />
     </div>
