@@ -47,6 +47,7 @@ const GroupDetailsModal = ({ onClose }) => {
   };
 
   return (
+    
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.sidebar}>

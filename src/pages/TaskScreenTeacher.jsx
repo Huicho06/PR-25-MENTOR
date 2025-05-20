@@ -1,77 +1,109 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaSearch, FaPlus } from "react-icons/fa";
-import BottomNavT from "../components/BottomNavTeacher";
+import BottomNavTeacher from "../components/BottomNavTeacher";
 import NavbarT from "../components/NavbarTeacher";
 import MainNavbar from "../components/MainNavbar";
 import { useNavigate } from "react-router-dom";
-import BottomNavTeacher from "../components/BottomNavTeacher";
-
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "/src/services/firebase";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const TaskScreenTeacher = () => {
-  const [tasks, setTasks] = useState([
-    {
-      title: "Rombos",
-      dueDate: "2 mayo 23:59",
-      group: "Grupo C",
-    },
-    {
-      title: "Actividad Autoaprendizaje 2",
-      dueDate: "12 mayo 23:59",
-      group: "Grupo C",
-    },
-    {
-      title: "Actividad de Autoaprendizaje Asíncrona: Design Thinking",
-      dueDate: "14 mayo 13:55",
-      group: "Grupo C",
-    },
-    {
-      title: "Herramientas de Exploración",
-      dueDate: "19 mayo 23:59",
-      group: "Grupo C",
-    },
-  ]);
-
+  const [tasks, setTasks] = useState([]);
+  const [user, setUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchTasks = async () => {
+      try {
+        // Consulta para obtener las tareas del docente actual
+        const q = query(
+          collection(db, "tareas"),
+          where("creadoPor", "==", user.uid)
+        );
+        const snapshot = await getDocs(q);
+        const tasksData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setTasks(tasksData);
+      } catch (error) {
+        console.error("Error al cargar tareas:", error);
+      }
+    };
+
+    fetchTasks();
+  }, [user]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  const navigate = useNavigate();
   const handleAddTask = () => {
     navigate("/create-task-teacher");
   };
-  
+
   return (
     <div style={styles.wrapper}>
       <MainNavbar />
       <NavbarT />
 
-      {/* Lista de tareas */}
+      <div style={{ marginBottom: 10 }}>
+        <input
+          type="text"
+          placeholder="Buscar tarea"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          style={{
+            width: "100%",
+            padding: "8px",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: "#1a1a1a",
+            color: "#fff",
+          }}
+        />
+      </div>
+
       <div style={styles.taskList}>
         {tasks
           .filter((task) =>
-            task.title.toLowerCase().includes(searchTerm.toLowerCase())
+            task.titulo?.toLowerCase().includes(searchTerm.toLowerCase())
           )
-          .map((task, index) => (
-            <div
-              key={index}
-              style={{ ...styles.taskItem, cursor: "pointer" }}
-              onClick={() => navigate("/DetailsTaskTeacher", { state: task })}
-            >
+          .map((task) => (
+<div
+  key={task.id}
+  style={styles.taskItem}
+  onClick={() => navigate(`/details-task-teacher/${task.id}`)}
+>
               <div style={styles.taskInfo}>
-                <h3 style={styles.taskTitle}>{task.title}</h3>
+                <h3 style={styles.taskTitle}>{task.titulo}</h3>
                 <p style={styles.taskDetails}>
-                  <strong>Asignado a:</strong> {task.group}
+                  <strong>Asignado a:</strong> {task.grupo}
                 </p>
-                <p style={styles.dueDate}>🕒 Vence el {task.dueDate}</p>
+                <p style={styles.dueDate}>
+                  🕒 Vence el{" "}
+                  {task.fechaEntrega
+                    ? new Date(task.fechaEntrega.seconds * 1000).toLocaleString()
+                    : ""}
+                </p>
               </div>
             </div>
-          ))
-          }
+          ))}
       </div>
 
-      {/* Botón flotante para agregar tarea */}
       <button onClick={handleAddTask} style={styles.fabButton}>
         <FaPlus size={18} />
       </button>
@@ -89,26 +121,6 @@ const styles = {
     flexDirection: "column",
     padding: "20px",
     position: "relative",
-  },
-  searchContainer: {
-    display: "flex",
-    alignItems: "center",
-    backgroundColor: "#1a1a1a",
-    borderRadius: "10px",
-    padding: "8px 12px",
-    marginBottom: "10px",
-  },
-  searchInput: {
-    flex: 1,
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    fontSize: "1rem",
-    outline: "none",
-  },
-  searchIcon: {
-    color: "#ccc",
-    marginLeft: "10px",
   },
   taskList: {
     flex: 1,

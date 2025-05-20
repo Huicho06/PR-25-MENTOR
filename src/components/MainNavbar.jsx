@@ -16,6 +16,17 @@ const [hasNewNotifications, setHasNewNotifications] = useState(true);
   const handleViewProfile = () => {
     navigate("/ProfileScreen");
   };
+   const scrollToRequest = (id) => {
+    const target = document.getElementById(`solicitud-${id}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.style.backgroundColor = "#14532d"; // Verde fuerte
+      setTimeout(() => {
+        target.style.backgroundColor = "";
+      }, 2000);
+    }
+  };
+
 
   const toggleNotificationModal = () => {
   setIsNotificationModalOpen((prev) => {
@@ -93,15 +104,15 @@ useEffect(() => {
               <h2 style={{ marginTop: 0 }}>Notificaciones</h2>
               <div style={styles.notificationContent}>
                 {notifications.map((notification) => (
-  <div
-    key={notification.id}
-    style={styles.notificationItem}
-    onClick={() => window.scrollToRequest(notification.id)}
-  >
-    <div style={styles.notificationIcon}></div>
-    <p style={styles.notificationMessage}>{notification.message}</p>
-  </div>
-))}
+                  <div
+                    key={notification.id}
+                    style={styles.notificationItem}
+                    onClick={() => scrollToRequest(notification.id)} 
+                  >
+                    <div style={styles.notificationIcon}></div>
+                    <p style={styles.notificationMessage}>{notification.message}</p>
+                  </div>
+                ))}
 
               </div>
             </div>

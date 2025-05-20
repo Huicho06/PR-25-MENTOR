@@ -7,6 +7,8 @@ import logo from "../assets/logo.png";
 import BottomNav from "../components/BottomNav";  // Logo de la app
 import personImage from "../assets/person.png";
 import { updateProfile } from "firebase/auth";
+import { uploadToCloudinary } from "../utils/uploadToCloudinary"; 
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const UpdateProfileStudent = () => {
   const navigate = useNavigate();
@@ -32,12 +34,23 @@ const UpdateProfileStudent = () => {
           setName(userData.nombre || "");
           setCareer(userData.carrera || "");
           setPhoneNumber(userData.telefono || "");
+           if (userData.fotoPerfil) {
+          setImagePreview(userData.fotoPerfil); // Cargar foto actual (URL)
+        }
         }
       };
       fetchUserData();
     }
   }, [auth]);
+const handlePhoneChange = (e) => {
+  const valor = e.target.value;
+  const regex = /^[0-9]*$/; // Solo números
 
+  if (valor === "" || regex.test(valor)) {
+    setPhoneNumber(valor);
+  }
+  // Si no es número, no actualiza el estado, bloquea el input
+};
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -51,8 +64,23 @@ const UpdateProfileStudent = () => {
   };
 
   const handleSubmit = async () => {
+    const regex = /^[0-9]*$/;
+  if (!regex.test(phoneNumber)) {
+    alert("El número de teléfono solo puede contener dígitos numéricos.");
+    return;
+  }
+    
+    
     try {
       const user = auth.currentUser; // Obtener el usuario logueado
+      let fotoPerfilURL = imagePreview; // Por defecto URL actual
+
+    if (profileImage) {
+      // Si hay nueva imagen, subir y obtener URL
+      const { url } = await uploadToCloudinary(profileImage);
+      fotoPerfilURL = url;
+    }
+      
       await updateProfile(user, {
         displayName: name // Actualiza el displayName
       });
@@ -63,16 +91,25 @@ const UpdateProfileStudent = () => {
         carrera: career,
         telefono: phoneNumber,
         // Si hay una nueva foto de perfil, se actualizaría
-        fotoPerfil: profileImage ? profileImage.name : null,  // Solo si se sube una imagen
+        fotoPerfil: fotoPerfilURL,  // Solo si se sube una imagen
       };
 
       // Usamos updateDoc para actualizar solo los campos modificados
       await updateDoc(userRef, updatedData); 
-      
-      console.log("Perfil actualizado correctamente");
 
-      // Redirigir a la página principal o cualquier otra que necesites
-      navigate("/main");
+       const solicitudesRef = collection(db, "solicitudes");
+    const q = query(
+      solicitudesRef,
+      where("estudiante_uid", "==", user.uid),
+      where("estado", "==", "aceptado")
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      navigate("/studentHome"); // Tiene proyecto aprobado
+    } else {
+      navigate("/main"); // No tiene proyecto aprobado
+    }
     } catch (error) {
       console.error("Error al actualizar el perfil:", error);
     }
@@ -117,7 +154,7 @@ const UpdateProfileStudent = () => {
           style={styles.input}
           placeholder="Número de teléfono"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChange={handlePhoneChange}
         />
 
         {/* Subir foto de perfil */}

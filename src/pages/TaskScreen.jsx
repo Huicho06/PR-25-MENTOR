@@ -1,18 +1,51 @@
-import React, { useState } from "react";
-import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
-import { FiMessageCircle } from "react-icons/fi"; // Icono de mensaje
-import BottomNav from "../components/BottomNav"; // Para la barra de navegación
-import Navbar from "../components/Navbar"; // Para la barra de navegación // Para la barra de navegación
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 import NavbarStudent from "../components/NavbarStudent";
-const TaskScreen = () => {
-  const [tasks, setTasks] = useState([
-    { title: "Rombos", dueDate: "2 mayo 23:59", course: "PROCESAMIENTO DIGITAL DE IMAGENES", group: "Grupo C" },
-    { title: "Actividad Autoaprendizaje 2", dueDate: "12 mayo 23:59", course: "PROYECTO DE SISTEMAS II", group: "Grupo C" },
-    { title: "Actividad de Autoaprendizaje Asíncrona: Design Thinking", dueDate: "14 mayo 13:55", course: "METODOLOGIA DE LA INVESTIGACION", group: "Grupo C" },
-    { title: "Herramientas de Exploración", dueDate: "19 mayo 23:59", course: "DATA WAREHOUSING", group: "Grupo C" },
-  ]);
+import BottomNav from "../components/BottomNav";
 
-  const [searchTerm, setSearchTerm] = useState(""); // Para la barra de búsqueda
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../services/firebase";
+
+const TaskScreen = () => {
+  const [tasks, setTasks] = useState([]);
+  const [user, setUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchTasks = async () => {
+      try {
+        // Supongamos que el campo que relaciona la tarea con el estudiante es 'creadoPor' o 'estudiante_uid'
+        const q = query(
+          collection(db, "tareas"),
+          where("creadoPor", "==", user.uid) // Ajusta aquí si usas otro campo
+        );
+        const snapshot = await getDocs(q);
+        const tareasData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTasks(tareasData);
+      } catch (error) {
+        console.error("Error al cargar tareas:", error);
+      }
+    };
+
+    fetchTasks();
+  }, [user]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -20,27 +53,53 @@ const TaskScreen = () => {
 
   return (
     <div style={styles.wrapper}>
-      
       <Navbar />
       <NavbarStudent />
-      {/* Listado de tareas */}
+
+      <input
+        type="text"
+        placeholder="Buscar tarea"
+        value={searchTerm}
+        onChange={handleSearchChange}
+        style={{
+          width: "100%",
+          padding: "8px",
+          borderRadius: "8px",
+          border: "none",
+          backgroundColor: "#1a1a1a",
+          color: "#fff",
+          marginTop: "10px",
+          marginBottom: "10px",
+        }}
+      />
+
+      {/* Listado dinámico de tareas */}
       <div style={styles.taskList}>
         {tasks
-          .filter((task) => task.title.toLowerCase().includes(searchTerm.toLowerCase())) // Filtra por búsqueda
-          .map((task, index) => (
-            <div key={index} style={styles.taskItem}>
+          .filter((task) =>
+            task.titulo?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .map((task) => (
+            <div
+              key={task.id}
+              style={styles.taskItem}
+onClick={() => navigate(`/details-task-student/${task.id}`)}
+
+            >
               <div style={styles.taskInfo}>
-                <h3 style={styles.taskTitle}>{task.title}</h3>
-                <p style={styles.taskDetails}>
-                  {task.course} - {task.group}
+                <h3 style={styles.taskTitle}>{task.titulo}</h3>
+
+                <p style={styles.dueDate}>
+                  Vence el{" "}
+                  {task.fechaEntrega
+                    ? new Date(task.fechaEntrega.seconds * 1000).toLocaleString()
+                    : "Fecha no especificada"}
                 </p>
-                <p style={styles.dueDate}>Vence el {task.dueDate}</p>
               </div>
             </div>
           ))}
       </div>
 
-      {/* BottomNav */}
       <BottomNav />
     </div>
   );
@@ -54,44 +113,20 @@ const styles = {
     flexDirection: "column",
     padding: "20px",
   },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 0",
-    borderBottom: "1px solid #333",
-  },
-  backButton: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    fontSize: "20px",
-    cursor: "pointer",
-  },
-  headerTitle: {
-    fontSize: "24px",
-    fontWeight: "bold",
-    color: "#1ed760", // Usando el verde de tu paleta
-  },
-  searchButton: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    cursor: "pointer",
-  },
   taskList: {
-    marginTop: "20px",
+    marginTop: "10px",
     overflowY: "auto",
-    height: "calc(100vh - 150px)", // Ajustar la altura del scroll
+    height: "calc(100vh - 180px)",
   },
   taskItem: {
     display: "flex",
     justifyContent: "space-between",
     padding: "15px",
-    backgroundColor: "#1a1a1a", // Color de fondo oscuro
+    backgroundColor: "#1a1a1a",
     marginBottom: "10px",
     borderRadius: "10px",
     color: "#fff",
+    cursor: "pointer",
   },
   taskInfo: {
     flex: 1,

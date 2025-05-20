@@ -4,13 +4,18 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth,db } from "../../services/firebase"
 import { doc, getDoc } from "firebase/firestore";
 import logo from "../../assets/logo.png"; // Ajusta la ruta según la estructura de carpetas
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
+  const handleKeyDown = (e) => {
+      if (e.key === "Enter") {
+        handleSubmit();
+      }
+    };
   const handleSubmit = async () => {
     if (!email || !password) {
       setError("Por favor, ingrese correo y contraseña.");
@@ -20,6 +25,21 @@ const Login = () => {
       // Iniciar sesión con el correo y la contraseña
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user; // El usuario autenticado
+
+      const solicitudesRef = collection(db, "solicitudes");
+    const q = query(
+      solicitudesRef,
+      where("estudiante_uid", "==", user.uid),
+      where("estado", "==", "aceptado")
+    );
+    const querySnapshot = await getDocs(q);
+    
+
+    if (!querySnapshot.empty) {
+      // Tiene proyecto aprobado, redirigir a StudentHome
+      navigate("/studentHome");
+      return;
+    }
 
       // Verificar si el perfil está completo en Firestore
       const userRef = doc(db, "usuarios", user.uid);
@@ -72,6 +92,7 @@ const Login = () => {
           placeholder="Correo electrónico"
           value={email}
           onChange={(e) => setEmail(e.target.value)} // Asignar el valor del correo
+          onKeyDown={handleKeyDown}
         />
         <input
           style={styles.input}
@@ -79,6 +100,7 @@ const Login = () => {
           placeholder="Contraseña"
           value={password}
           onChange={(e) => setPassword(e.target.value)} // Asignar el valor de la contraseña
+           onKeyDown={handleKeyDown}
         />
         {/* Mostrar el error en rojo */}
         {error && <p style={styles.error}>{error}</p>}
@@ -166,4 +188,4 @@ const styles = {
   },
 };
 
-export default Login;
+export default Login;

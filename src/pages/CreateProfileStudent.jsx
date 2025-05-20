@@ -4,6 +4,7 @@ import { db } from "/src/services/firebase";  // Importar desde el archivo fireb
 import { getAuth } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";  // Para leer y escribir en Firestore
 import logo from "../assets/logo.png";  // Logo de la app
+import { uploadToCloudinary } from "../utils/uploadToCloudinary";
 
 const CreateProfileStudent = () => {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ const CreateProfileStudent = () => {
   const [phoneNumber, setPhoneNumber] = useState("");  // Teléfono
   const [imagePreview, setImagePreview] = useState(null); // Vista previa de la imagen
   const [userData, setUserData] = useState(null);  // Para almacenar los datos del usuario
+  const [photoURL, setPhotoURL] = useState(null);
+
 
   // Cargar los datos del usuario al iniciar la página
   useEffect(() => {
@@ -42,8 +45,8 @@ const CreateProfileStudent = () => {
         nombre: name,
         carrera: career,
         telefono: phoneNumber,
-        fotoPerfil: null,  // No subir foto
-        perfilCompletado: true,  // Cambiar a `true` cuando el perfil esté completado
+        fotoPerfil: photoURL,  // No subir foto
+        perfilCompletado: true,  // Cambiar a true cuando el perfil esté completado
       };
 
       await setDoc(userRef, updatedData, { merge: true });  // Merge para no sobrescribir otros datos
@@ -56,6 +59,24 @@ const CreateProfileStudent = () => {
       console.error("Error al actualizar el perfil:", error);
     }
   };
+  const handlePhoneChange = (e) => {
+  const valor = e.target.value;
+
+  // Permitir vacío
+  if (valor === "") {
+    setPhoneNumber("");
+    return;
+  }
+
+  // Solo números permitidos
+  const regex = /^[0-9]*$/;
+
+  if (regex.test(valor)) {
+    setPhoneNumber(valor);
+  }
+  // Si no es número, no actualiza
+};
+
 
   return (
     <div style={styles.wrapper}>
@@ -92,7 +113,7 @@ const CreateProfileStudent = () => {
           style={styles.input}
           placeholder="Número de teléfono"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}  // Asignar el valor del teléfono
+          onChange={handlePhoneChange}  // Asignar el valor del teléfono
         />
 
         {/* Mostrar imagen de perfil, sin carga de archivo */}
@@ -109,7 +130,7 @@ const CreateProfileStudent = () => {
           type="file"
           accept="image/*"
           style={styles.fileInput}
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files[0];
             if (file) {
               const reader = new FileReader();
@@ -117,6 +138,13 @@ const CreateProfileStudent = () => {
                 setImagePreview(reader.result);
               };
               reader.readAsDataURL(file);  // Mostrar la imagen seleccionada
+              try {
+              const { url } = await uploadToCloudinary(file);
+              setPhotoURL(url);
+            } catch (error) {
+              console.error("Error subiendo la imagen:", error);
+              alert("No se pudo subir la imagen. Intenta nuevamente.");
+            }
             }
           }}
         />

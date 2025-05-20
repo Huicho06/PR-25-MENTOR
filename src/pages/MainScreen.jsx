@@ -131,13 +131,13 @@ const [rechazoDetalle, setRechazoDetalle] = useState(null);
 // Manejar la selección de estudiantes para el proyecto
 const handleSelectStudent = (student) => {
   if (selectedStudentsIds.includes(student.id)) {
-    // Si ya está seleccionado, lo desmarcamos
-    setSelectedStudents(selectedStudents.filter(id => id !== student.displayName)); // Eliminar nombre
-    setSelectedStudentsIds(selectedStudentsIds.filter(id => id !== student.id)); // Eliminar ID
+    // Si ya está seleccionado, deseleccionarlo (vaciar la selección)
+    setSelectedStudents([]);
+    setSelectedStudentsIds([]);
   } else {
-    // Si no está seleccionado, lo agregamos
-    setSelectedStudents([...selectedStudents, student.nombre]); // Añadir nombre
-    setSelectedStudentsIds([...selectedStudentsIds, student.id]); // Añadir ID
+    // Solo agregar ese estudiante y reemplazar cualquier selección anterior
+    setSelectedStudents([student.nombre]);
+    setSelectedStudentsIds([student.id]);
   }
 };
 
@@ -235,7 +235,7 @@ const handleSelectStudent = (student) => {
     const solicitudesSnapshot = await getDocs(
       query(
         collection(db, "solicitudes"),
-        where("estado", "==", "pendiente")
+        where("estado", "in", ["pendiente", "aceptado"])
       )
     );
 
@@ -281,8 +281,13 @@ const handleSelectStudent = (student) => {
 
  // Agregar el proyecto
  const handleAddProject = async () => {
-  if (!projectName || selectedStudentsIds.length === 0) {
-    console.error("Por favor, complete todos los campos.");
+  if (!projectName) {
+    console.error("Por favor, ingrese el nombre del proyecto.");
+    return;
+  }
+  
+  if (selectedStudentsIds.length > 1) {
+    console.error("Solo puedes seleccionar máximo un estudiante.");
     return;
   }
   
@@ -363,7 +368,7 @@ const handleSelectStudent = (student) => {
     fontSize: "0.95rem",
     zIndex: 1000
   }}>
-    Ya existe una solicitud pendiente por parte de tu grupo.
+    Ya existe una solicitud por parte de tu grupo.
   </div>
 )}
 
@@ -589,7 +594,7 @@ const handleSelectStudent = (student) => {
         return (
           <div key={student.id}>
             <div
-              onClick={handleClick}
+              onClick={() => handleSelectStudent(student)}
               style={{
                 padding: "8px",
                 marginBottom: "6px",

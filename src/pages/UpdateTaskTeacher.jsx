@@ -1,18 +1,47 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import MainNavbar from "../components/MainNavbar";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 
 const UpdateTaskTeacher = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const [title, setTitle] = useState(state?.title || "");
-  const [group, setGroup] = useState(state?.group || "Grupo C");
-  const [dueDate, setDueDate] = useState(state?.dueDate || "");
+  const taskId = state?.id; // Asegúrate que envíes el id en el state al navegar
 
-  const handleUpdate = () => {
-    // Aquí actualizas en Firebase o tu estado global
-    alert("Tarea actualizada");
-    navigate("/tasks-teacher");
+  // Transformar fecha Firestore a formato ISO para input datetime-local
+  const fechaLocal = state?.fechaEntrega
+    ? new Date(state.fechaEntrega.seconds * 1000).toISOString().slice(0, 16)
+    : "";
+
+  const [title, setTitle] = useState(state?.titulo || "");
+  const [group, setGroup] = useState(state?.grupo || "");
+  const [dueDate, setDueDate] = useState(fechaLocal);
+
+  const handleUpdate = async () => {
+    if (!taskId) {
+      alert("No se encontró el ID de la tarea.");
+      return;
+    }
+
+    try {
+      const taskRef = doc(db, "tareas", taskId);
+
+      // Convertir dueDate a Timestamp si es necesario (aquí asumo que guardas como Date en Firestore)
+      const fechaEntregaDate = new Date(dueDate);
+
+      await updateDoc(taskRef, {
+        titulo: title,
+        grupo: group,
+        fechaEntrega: fechaEntregaDate,
+      });
+
+      alert("Tarea actualizada");
+      navigate(`/TaskScreenTeacher`);
+    } catch (error) {
+      console.error("Error actualizando la tarea:", error);
+      alert("Error al actualizar la tarea.");
+    }
   };
 
   return (
@@ -25,18 +54,27 @@ const UpdateTaskTeacher = () => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <select value={group} style={styles.input} onChange={(e) => setGroup(e.target.value)}>
-          <option value="Grupo C">Grupo C</option>
-          <option value="Grupo B">Grupo B</option>
-          <option value="Grupo A">Grupo A</option>
+        <select
+          value={group}
+          style={styles.input}
+          onChange={(e) => setGroup(e.target.value)}
+        >
+          {/* Agrega dinámicamente el grupo actual si no está en las opciones fijas */}
+          {group && !["Grupo C", "Grupo B", "Grupo A"].includes(group) && (
+            <option value={group}>{group}</option>
+          )}
+
         </select>
+
         <input
           style={styles.input}
           type="datetime-local"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
         />
-        <button style={styles.button} onClick={handleUpdate}>Guardar Cambios</button>
+        <button style={styles.button} onClick={handleUpdate}>
+          Guardar Cambios
+        </button>
       </div>
     </div>
   );
