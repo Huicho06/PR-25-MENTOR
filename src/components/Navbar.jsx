@@ -1,147 +1,353 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // Para la navegación
-import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
+import React, { useState, useEffect, useRef } from "react";
+import { FaBell, FaUser } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { db } from "../services/firebase";
+import logo from "../assets/logo.png";
+import BottomNavLogout from "../components/SignOut";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc,orderBy, limit
+} from "firebase/firestore";
 
 const Navbar = () => {
-  const [activeTab, setActiveTab] = useState("chat"); // Estado para manejar qué botón está activo
-  const [searchTerm, setSearchTerm] = useState(""); // Para la barra de búsqueda
-  const navigate = useNavigate(); // Hook para navegar
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
+  const [showRechazoModal, setShowRechazoModal] = useState(false);
+  const [rechazoDetalle, setRechazoDetalle] = useState(null);
+  const [showAceptadoModal, setShowAceptadoModal] = useState(false);
+  const [aceptadoDetalle, setAceptadoDetalle] = useState(null);
+  const modalRef = useRef(null);
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Función para cambiar el estado del botón activo y navegar
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    if (tab === "chat") {
-      navigate("/ChatScreen"); // Redirige a la pantalla de chat
-    } else if (tab === "tasks") {
-      navigate("/TaskScreen"); // Redirige a la pantalla de tareas
-    }
-  };
-
-  // Usar useEffect para actualizar el estado cuando la ruta cambie
   useEffect(() => {
-    const path = window.location.pathname;
-    if (path.includes("TaskScreen")) {
-      setActiveTab("tasks");
-    } else if (path.includes("ChatScreen")) {
-      setActiveTab("chat");
+    const unsubscribe = onAuthStateChanged(getAuth(), (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        fetchNotifications(firebaseUser.uid);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const fetchNotifications = async (uid) => {
+  const q = query(
+    collection(db, "notificaciones"),
+    where("uid", "==", uid),
+    orderBy("timestamp", "desc"),
+    limit(10)
+  );
+  const snapshot = await getDocs(q);
+  const notis = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  setNotificaciones(notis);
+  setHasNewNotifications(notis.some(n => !n.leido));
+};
+const tiempoDesde = (timestamp) => {
+  if (!timestamp?.toDate) return "";
+  const date = timestamp.toDate();
+  const now = new Date();
+  const diff = Math.floor((now - date) / 1000); // en segundos
+
+  if (diff < 60) return `hace ${diff} segundos`;
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)} minutos`;
+  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} horas`;
+
+  const dias = Math.floor(diff / 86400);
+  if (dias === 1) return "ayer";
+
+  if (now.getFullYear() !== date.getFullYear()) {
+    return date.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+  } else {
+    return date.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+  }
+};
+
+
+  const marcarComoLeidas = async () => {
+    for (const noti of notificaciones) {
+      const ref = doc(db, "notificaciones", noti.id);
+      await updateDoc(ref, { leido: true });
     }
-  }, [window.location.pathname]);
+    setHasNewNotifications(false);
+  };
+const colorCampana = () => {
+  const noLeidas = notificaciones.filter(n => !n.leido);
+
+  if (noLeidas.some(n => n.tipo === "rechazo")) return "#f44336"; // rojo
+  if (noLeidas.some(n => n.tipo === "aceptado")) return "#1ed760"; // verde
+
+  return "#fff"; // todas leídas
+};
+
+  const toggleNotificationModal = () => {
+    setIsNotificationModalOpen(prev => !prev);
+    if (!isNotificationModalOpen) {
+      marcarComoLeidas();
+    }
+  };
+
+  const handleViewProfile = () => {
+    navigate("/ProfileScreen");
+  };
+  
+
+  // Cierra modal si se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (modalRef.current && !modalRef.current.contains(e.target)) {
+        setIsNotificationModalOpen(false);
+      }
+    };
+
+    if (isNotificationModalOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isNotificationModalOpen]);
+
+  const handleNotificationClick = (notification) => {
+  if (notification.tipo === "rechazo") {
+    setRechazoDetalle(notification);
+    setShowRechazoModal(true);
+    setIsNotificationModalOpen(false);
+  } else if (notification.tipo === "aceptado") {
+    setAceptadoDetalle(notification);
+    setShowAceptadoModal(true);
+    setIsNotificationModalOpen(false);
+  }
+};
+
+
+
+  const handleCloseRechazoModal = async () => {
+    if (rechazoDetalle) {
+      await updateDoc(doc(db, "notificaciones", rechazoDetalle.id), {
+        leido: true,
+      });
+    }
+    setShowRechazoModal(false);
+    setRechazoDetalle(null);
+    fetchNotifications(user?.uid); // actualizar lista
+  };
+  const handleCloseAceptadoModal = async () => {
+  if (aceptadoDetalle) {
+    await updateDoc(doc(db, "notificaciones", aceptadoDetalle.id), {
+      leido: true,
+    });
+  }
+  setShowAceptadoModal(false);
+  setAceptadoDetalle(null);
+  navigate("/StudentHome "); // ✅
+};
+
 
   return (
-    <div>
-      {/* Barra superior con título y botones */}
+    <div style={styles.navBar}>
+      <img src={logo} alt="Logo Mentor" style={styles.logo} />
+      <div style={styles.rightNav}>
+        <div style={{ position: "relative" }}>
+          <FaBell
+            style={{
+              ...styles.bellIcon,
+              color: colorCampana()
+            }}
+            onClick={toggleNotificationModal}
+          />
+          {isNotificationModalOpen && (
+            <div ref={modalRef} style={styles.notificationModal}>
+              <h3 style={{ marginTop: 0 }}>Notificaciones</h3>
+              <div style={styles.notificationContent}>
+                {notificaciones.length === 0 ? (
+                  <p style={{ color: "#aaa" }}>No tienes notificaciones</p>
+                ) : (
+                  notificaciones.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      style={{
+                        ...styles.notificationItem,
+                        backgroundColor: n.leido
+                          ? "#2a2a2a" // fondo neutro si ya fue leída
+                          : n.tipo === "rechazo"
+                            ? "#4a1e1e"
+                            : "#1e4a2a"
+                      }}
+                    >
+                      <div
+                        style={{
+                          ...styles.notificationIcon,
+                          backgroundColor: n.leido
+                            ? "#777" // gris si fue leída
+                            : n.tipo === "rechazo"
+                              ? "#f44336"
+                              : "#1ed760"
+                        }}
+                      ></div>
+                      <p style={styles.notificationMessage}>
+                        {n.tipo === "rechazo"
+                          ? `Tu proyecto "${n.proyecto_nombre}" fue rechazado`
+                          : n.tipo === "aceptado"
+                            ? `Tu proyecto "${n.proyecto_nombre}" fue aceptado`
+                            : "Notificación"}
+                        <br />
+                        <small style={{ color: "#888" }}>{tiempoDesde(n.timestamp)}</small>
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <FaUser style={styles.userIcon} onClick={handleViewProfile} />
+        <BottomNavLogout />
+      </div>  
+      {showRechazoModal && rechazoDetalle && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2>Proyecto Rechazado</h2>
+            <p><strong>Proyecto:</strong> {rechazoDetalle.proyecto_nombre}</p>
+            <p><strong>Motivo:</strong> {rechazoDetalle.motivo}</p>
+            <button
+              style={styles.modalButton1}
+              onClick={handleCloseRechazoModal}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}  
+        {showAceptadoModal && aceptadoDetalle && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modal}>
+              <h2 style={{ marginTop: 0 }}>¡Proyecto Aceptado! 🎉</h2>
+              <p><strong>Proyecto:</strong> {aceptadoDetalle.proyecto_nombre}</p>
+              <p>Tu solicitud fue aprobada. ¡Ahora puedes trabajar con tu mentor!</p>
+              <button
+                style={styles.modalButton1}
+                onClick={handleCloseAceptadoModal}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        )}
 
-      {/* Botones de "Chat" y "Tareas" */}
-      <div style={styles.chatTasksBtns}>
-        <button
-          style={activeTab === "chat" ? styles.chatBtnActive : styles.chatBtn}
-          onClick={() => handleTabChange("chat")}
-        >
-          Chat
-        </button>
-        <button
-          style={activeTab === "tasks" ? styles.tasksBtnActive : styles.tasksBtn}
-          onClick={() => handleTabChange("tasks")}
-        >
-          Tareas
-        </button>
-      </div>
-
-      {/* Barra de búsqueda */}
-      <div style={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          style={styles.searchInput}
-        />
-      </div>
-    </div>
-  );
+    </div>    
+  );  
 };
 
 const styles = {
-  header: {
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999
+  },
+  modal: {
+  backgroundColor: "#2a2a2a",
+  padding: "30px",
+  borderRadius: "12px",
+  width: "90%",
+  maxWidth: "600px", // más ancho
+  color: "#fff",
+  boxShadow: "0px 8px 30px rgba(0, 0, 0, 0.6)",
+  lineHeight: "1.7", // más separación de texto
+  fontSize: "1.1rem"
+},
+  modalButton1: {
+    padding: "10px 20px",
+    borderRadius: "5px",
+    backgroundColor: "#1ed760",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    marginTop: "15px"
+  },
+  navBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "10px 0",
-    borderBottom: "1px solid #333",
+    padding: "10px 20px",
   },
-  backButton: {
-    background: "transparent",
-    border: "none",
+  logo: {
+    width: 120,
+  },
+  rightNav: {
+    display: "flex",
+    alignItems: "center",
+  },
+  bellIcon: {
     color: "#fff",
     fontSize: "20px",
     cursor: "pointer",
+    marginRight: "20px",
   },
-  chatTasksBtns: {
-    display: "flex",
-    justifyContent: "center",
-    marginTop: "20px",
-    marginBottom: "20px",
-  },
-  chatBtn: {
-    backgroundColor: "#333", // Fondo gris para Chat
+  userIcon: {
     color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
+    fontSize: "20px",
     cursor: "pointer",
-    marginRight: "10px",
-    fontWeight: "bold",
+    marginRight: "20px",
   },
-  chatBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Chat activo
+  notificationModal: {
+    position: "absolute",
+    top: "30px",
+    right: 0,
+    backgroundColor: "#2a2a2a",
+    padding: "20px",
+    borderRadius: "10px",
     color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    marginRight: "10px",
-    fontWeight: "bold",
+    width: "300px",
+    boxShadow: "0px 4px 20px rgba(0,0,0,0.6)",
+    zIndex: 1000,
   },
-  tasksBtn: {
-    backgroundColor: "#333", // Fondo gris para Tareas
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    fontWeight: "bold",
+  notificationContent: {
+    marginTop: "10px",
+    maxHeight: "250px",
+    overflowY: "auto",
   },
-  tasksBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Tareas activo
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  searchContainer: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "20px",
-  },
-  searchInput: {
-    width: "90%",
-    padding: "10px",
-    borderRadius: "15px",
+  notificationItem: {
     backgroundColor: "#333",
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "10px",
+    display: "flex",
+    alignItems: "center",
     color: "#fff",
-    border: "none",
-    textAlign: "center",
+    cursor: "pointer",
   },
+  notificationIcon: {
+    width: "15px",
+    height: "15px",
+    backgroundColor: "#1ed760",
+    borderRadius: "50%",
+    marginRight: "15px",
+  },
+  notificationMessage: {
+    fontSize: "1rem",
+    color: "#ccc",
+  },
+  
 };
 
 export default Navbar;

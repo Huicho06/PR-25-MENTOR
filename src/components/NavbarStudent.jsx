@@ -1,40 +1,36 @@
-import React from "react";
-import { useNavigate } from "react-router-dom"; // Para la navegación
-import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { FaSearch } from "react-icons/fa";
 
-const Navbar = ({ searchTerm, setSearchTerm }) => {
+const NavbarStudent = () => {
+  const [activeTab, setActiveTab] = useState("chat");
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
-  
-  const [activeTab, setActiveTab] = React.useState("chat");
-  // Función para cambiar el estado del botón activo y navegar
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === "chat") {
-      navigate("/ChatScreenTeacher"); // Redirige a la pantalla de chat
+      navigate("/ChatScreen"); // Rutas para estudiantes
     } else if (tab === "tasks") {
-      navigate("/TaskScreenTeacher"); // Redirige a la pantalla de tareas
+      navigate("/TaskScreen"); 
     }
   };
 
-  // Usar useEffect para actualizar el estado cuando la ruta cambie
-    React.useEffect(() => {
+  useEffect(() => {
     const path = window.location.pathname;
-    if (path.includes("TaskScreenTeacher")) {
+    if (path.includes("TaskScreen")) {
       setActiveTab("tasks");
-    } else if (path.includes("ChatScreenTeacher")) {
+    } else if (path.includes("ChatScreen")) {
       setActiveTab("chat");
     }
   }, [window.location.pathname]);
 
   return (
     <div>
-      {/* Barra superior con título y botones */}
-
-      {/* Botones de "Chat" y "Tareas" */}
       <div style={styles.chatTasksBtns}>
         <button
           style={activeTab === "chat" ? styles.chatBtnActive : styles.chatBtn}
@@ -50,7 +46,6 @@ const Navbar = ({ searchTerm, setSearchTerm }) => {
         </button>
       </div>
 
-      {/* Barra de búsqueda */}
       <div style={styles.searchContainer}>
         <input
           type="text"
@@ -65,20 +60,6 @@ const Navbar = ({ searchTerm, setSearchTerm }) => {
 };
 
 const styles = {
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 0",
-    borderBottom: "1px solid #333",
-  },
-  backButton: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    fontSize: "20px",
-    cursor: "pointer",
-  },
   chatTasksBtns: {
     display: "flex",
     justifyContent: "center",
@@ -86,7 +67,7 @@ const styles = {
     marginBottom: "20px",
   },
   chatBtn: {
-    backgroundColor: "#333", // Fondo gris para Chat
+    backgroundColor: "#333",
     color: "#fff",
     border: "none",
     padding: "10px 20px",
@@ -97,7 +78,7 @@ const styles = {
     fontWeight: "bold",
   },
   chatBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Chat activo
+    backgroundColor: "#1ed760",
     color: "#fff",
     border: "none",
     padding: "10px 20px",
@@ -108,7 +89,7 @@ const styles = {
     fontWeight: "bold",
   },
   tasksBtn: {
-    backgroundColor: "#333", // Fondo gris para Tareas
+    backgroundColor: "#333",
     color: "#fff",
     border: "none",
     padding: "10px 20px",
@@ -118,7 +99,7 @@ const styles = {
     fontWeight: "bold",
   },
   tasksBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Tareas activo
+    backgroundColor: "#1ed760",
     color: "#fff",
     border: "none",
     padding: "10px 20px",
@@ -143,4 +124,4 @@ const styles = {
   },
 };
 
-export default Navbar;
+export default NavbarStudent;

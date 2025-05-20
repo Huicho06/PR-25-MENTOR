@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { FaHome, FaComments, FaUser } from "react-icons/fa"; // Para los iconos
-import { useNavigate, useLocation } from "react-router-dom"; // Para la navegación
+import { FaHome, FaComments, FaUser } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
+import { getAuth } from "firebase/auth";
+import { db } from "../services/firebase";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const BottomNav = () => {
   const navigate = useNavigate(); // Hook de navegación de react-router-dom
@@ -12,27 +15,50 @@ const BottomNav = () => {
   useEffect(() => {
     const path = location.pathname.toLowerCase();
   
-    if (path === "/main") {
+    if (path === "/main" || path === "/studenthome") {
       setActiveTab("home");
-    } else if (location.pathname.includes("ChatScreen") || location.pathname.includes("TaskScreen")) {
+    } else if (path.includes("chatscreen") || path.includes("taskscreen")) {
       setActiveTab("chats");
     } else if (path === "/profilescreen") {
       setActiveTab("profile");
     } else {
-      setActiveTab(null); // Ningún tab está activo
+      setActiveTab(null);
     }
   }, [location]);
   
 
   // Función para manejar la navegación
-  const handleNavigation = (tab) => {
+  const handleNavigation = async (tab) => {
     setActiveTab(tab); // Actualiza el tab activo
+      const auth = getAuth();
+    const user = auth.currentUser;
+
     if (tab === "home") {
-      navigate("/main"); // Redirige al MainScreen
+      if (user) {
+        const userRef = doc(db, "usuarios", user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+
+        if (userData?.proyecto) {
+          const solicitudQuery = query(
+            collection(db, "solicitudes"),
+            where("proyecto_integrantes_ids", "array-contains", user.uid),
+            where("estado", "==", "aceptado")
+          );
+
+          const solicitudSnap = await getDocs(solicitudQuery);
+
+          if (!solicitudSnap.empty) {
+            navigate("/StudentHome"); // Proyecto aceptado
+            return;
+          }
+        }
+      }
+      navigate("/main"); // Aún no aceptado o no tiene proyecto
     } else if (tab === "profile") {
-      navigate("/ProfileScreen"); // Redirige a la página de perfil
+      navigate("/ProfileScreen");
     } else if (tab === "chats") {
-      navigate("/ChatScreen"); // Redirige a la página de Chats
+      navigate("/ChatScreen");
     }
   };
 

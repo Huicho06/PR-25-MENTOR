@@ -1,24 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // Para la navegación
 import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
 import { FiMessageCircle } from "react-icons/fi"; // Icono de mensaje
 import BottomNav from "../components/BottomNav"; // Para la barra de navegación
-import Navbar from "../components/Navbar"; // Para la barra de navegación
-import MainNavbar from "../components/MainNavbar"; // Para la barra de navegación
+import Navbar from "../components/Navbar"; // Para la barra de navegación // Para la barra de navegación
+import NavbarStudent from "../components/NavbarStudent";
+import { getDocs, collection, query, where , doc, getDoc} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { db } from "/src/services/firebase"; 
 
-const ChatScreen = () => {
-  const [messages, setMessages] = useState([
-    { user: "Natasha", message: "Hi, Good Evening Bro..!", time: "14:59", unread: 3, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Mary J", message: "How was your Graphic de..!", time: "06:35", unread: 2, avatar: "https://placeimg.com/100/100/people" },
-    { user: "John", message: "How are you?", time: "08:10", unread: 0, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Mia", message: "OMG, This is Amazing..", time: "21:07", unread: 5, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Maria", message: "Wow, This is Really Epic", time: "09:15", unread: 0, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Tiya", message: "Hi, Good Evening Bro..!", time: "14:59", unread: 3, avatar: "https://placeimg.com/100/100/people" },
-  ]);
+const getUserNameByUID = async (uid) => {
+  const docRef = doc(db, "usuarios", uid);
+  const userSnap = await getDoc(docRef);
+  if (userSnap.exists()) {
+    const data = userSnap.data();
+    return data.nombre || "Usuario";
+  }
+  return "Desconocido";
+};
+const getUserInfoByUID = async (uid) => {
+  const docSnap = await getDoc(doc(db, "usuarios", uid));
+  if (docSnap.exists()) {
+    return docSnap.data(); // debe tener .nombre y .foto
+  }
+  return { nombre: "Usuario", foto: null };
+};
 
+
+const ChatScreen = () => { 
   const [activeTab, setActiveTab] = useState("chat"); // Estado para manejar qué botón está activo
   const [searchTerm, setSearchTerm] = useState(""); // Para la barra de búsqueda
   const navigate = useNavigate(); // Hook para la navegación
+
+  const [chats, setChats] = useState([]);
+useEffect(() => {
+  const fetchChats = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const q = query(
+      collection(db, "chats"),
+      where("participantes", "array-contains", user.uid)
+    );
+    const snapshot = await getDocs(q);
+    const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // 🔽 Este bloque es el que me pediste que te diga dónde va
+    const personalizedChats = await Promise.all(chatList.map(async (chat) => {
+  let nombrePersonalizado = chat.nombre;
+  let fotoPerfil = null;
+
+  if (chat.tipo === "personal") {
+    const yo = await getUserInfoByUID(user.uid);
+    nombrePersonalizado = `${yo.nombre} (Tú)`;
+    fotoPerfil = yo.foto || null;
+  } else if (chat.tipo === "compañero") {
+    const otroUID = chat.participantes.find((uid) => uid !== user.uid);
+    const otro = await getUserInfoByUID(otroUID);
+    nombrePersonalizado = otro.nombre;
+    fotoPerfil = otro.foto || null;
+  } else if (chat.tipo === "tutor_estudiante") {
+    const tutorUID = chat.participantes.find((uid) => uid !== user.uid);
+    const tutor = await getUserInfoByUID(tutorUID);
+    nombrePersonalizado = tutor.nombre;
+    fotoPerfil = tutor.foto || null;
+  } else if (chat.tipo === "grupo_proyecto") {
+    nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
+    fotoPerfil = null; // No tiene foto
+  }
+
+  return { ...chat, nombreMostrado: nombrePersonalizado, foto: fotoPerfil };
+}));
+
+
+    setChats(personalizedChats);
+  };
+
+  fetchChats();
+}, []);
+
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -37,36 +98,35 @@ const ChatScreen = () => {
 
   return (
     <div style={styles.wrapper}>
-      <MainNavbar />
+ 
       <Navbar />
+    <NavbarStudent />
       {/* Listado de mensajes */}
       <div style={styles.messageList}>
-        {messages
-          .filter((message) => message.user.toLowerCase().includes(searchTerm.toLowerCase())) // Filtra por búsqueda
-          .map((message, index) => (
-            <div
-              key={index}
-              style={styles.messageItem}
-              onClick={() => handleChatClick(message.user)} // Redirige al hacer clic en un mensaje
-            >
-              <div style={styles.userInfo}>
-                <img src={message.avatar} alt={message.user} style={styles.userIcon} />
-                <div>
-                  <h3 style={styles.userName}>{message.user}</h3>
-                  <p style={styles.messageText}>{message.message}</p>
-                </div>
-              </div>
-              <div style={styles.messageDetails}>
-                <span style={styles.time}>{message.time}</span>
-                {message.unread > 0 && (
-                  <div style={styles.unreadBadge}>
-                    <span>{message.unread}</span>
-                  </div>
-                )}
+       {chats
+        .filter((chat) => chat.nombreMostrado?.toLowerCase().includes(searchTerm.toLowerCase()))
+        .map((chat, index) => (
+          <div
+            key={index}
+            style={styles.messageItem}
+            onClick={() => navigate(`/chat/${chat.id}`)}
+          >
+            <div style={styles.userInfo}>
+              {chat.foto ? (
+                <img src={chat.foto} alt="avatar" style={styles.userImage} />
+              ) : (
+                <div style={styles.userIcon}>{chat.nombreMostrado.charAt(0)}</div>
+              )}
+              <div>
+                <h3 style={styles.userName}>{chat.nombreMostrado}</h3>
+                
               </div>
             </div>
-          ))}
+          </div>
+      ))}
+
       </div>
+
       <BottomNav />
     </div>
   );
@@ -94,6 +154,14 @@ const styles = {
     fontSize: "20px",
     cursor: "pointer",
   },
+  userImage: {
+  width: "40px",
+  height: "40px",
+  borderRadius: "50%",
+  objectFit: "cover",
+  marginRight: "10px"
+},
+
   chatTasksBtns: {
     display: "flex",
     justifyContent: "center",

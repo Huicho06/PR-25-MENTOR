@@ -2,7 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { FaPaperclip } from "react-icons/fa";
 import { FaEllipsisV, FaSignOutAlt } from "react-icons/fa";
 import Modal from "../components/GroupDetailsModal"; // Componente de navegación inferior
-
+import { useLocation } from "react-router-dom";
+import { db } from "/src/services/firebase";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { addDoc, serverTimestamp,doc, getDoc } from "firebase/firestore";
+import { uploadToCloudinary } from "../utils/uploadToCloudinary";
+import { writeBatch } from "firebase/firestore";
+import { useParams } from "react-router-dom";
 import {
   FaSearch,
   FaUser,
@@ -13,18 +20,13 @@ import {
   FaTrash,
 } from "react-icons/fa";
 
-const currentUser = "You";
+
 
 const GroupChatScreen = () => {
-  const [messages, setMessages] = useState([
-    { user: "Alex", message: "Hi, Good Evening 😊", time: "10:45" },
-    { user: "Mary", message: "How was your Graphic Design Course Like? 😄", time: "12:45" },
-    { user: "Professor J", message: "Hi, Morning too Mrs J", time: "15:29" },
-    { user: "You", message: "I just finished the Sketch Basic 😎 ⭐⭐⭐⭐", time: "15:29", seen: true },
-    { user: "You", message: "OMG, This is Amazing..", time: "13:59", seen: false },
-  ]);
+  
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
-
+  const location = useLocation();
+  const { chatId } = useParams();
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -32,14 +34,188 @@ const GroupChatScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const searchBarRef = useRef(); // <- para detectar clics fuera
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const mediaRecorderRef = useRef(null);
+const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+  const [chatImage, setChatImage] = useState(null);
+  const [chatName, setChatName] = useState("Chat");
+  const auth = getAuth();
+  const [user, setUser] = useState(auth.currentUser);
+  const shouldSendAudioRef = useRef(false);
 
   useEffect(() => {
-    let timer;
-    if (isRecording) {
-      timer = setInterval(() => setRecordingTime((prev) => prev + 1), 1000);
+  const unsubscribe = auth.onAuthStateChanged((u) => {
+    setUser(u);
+  });
+  return () => unsubscribe();
+}, []);
+
+useEffect(() => {
+  if (!chatId || !user) return;
+  const fetchChatName = async () => {
+    //if (!chatId) return;
+    const ref = doc(db, "chats", chatId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+
+    const chat = snap.data();
+    let nombrePersonalizado = chat.nombre;
+
+    if (chat.tipo === "personal") {
+      const userRef = doc(db, "usuarios", user.uid);
+      const userSnap = await getDoc(userRef);
+      const nombre = userSnap.exists() ? userSnap.data().nombre : "Tú";
+      nombrePersonalizado = `${nombre} (Tú)`;
+    } else if (chat.tipo === "compañero" || chat.tipo === "tutor_estudiante") {
+      const otroUID = chat.participantes.find(uid => uid !== user.uid);
+      const otroRef = doc(db, "usuarios", otroUID);
+      const otroSnap = await getDoc(otroRef);
+      if (otroSnap.exists()) {
+        const data = otroSnap.data();
+        nombrePersonalizado = data.nombre || "Usuario";
+        setChatImage(data.fotoURL || null); // ← Aquí seteas la imagen de perfil
+      }
+    } else if (chat.tipo === "grupo_proyecto") {
+      nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
+      setChatImage(null); // ← No mostramos imagen para grupo
     }
-    return () => clearInterval(timer);
-  }, [isRecording]);
+
+    setChatName(nombrePersonalizado);
+  };
+
+  fetchChatName();
+}, [chatId, user]);
+
+const startRecording = () => {
+  shouldSendAudioRef.current = true;
+  setRecordingTime(0);
+  audioChunksRef.current = [];
+
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.start();
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        if (!shouldSendAudioRef.current) {
+  // No enviar, solo limpiar y salir
+  audioChunksRef.current = [];
+  return;
+}
+
+  stream.getTracks().forEach(track => track.stop());
+
+  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+  
+  if (audioBlob.size === 0) {
+    alert("Grabación vacía, no se enviará.");
+    return;
+  }
+
+  const file = new File([audioBlob], `audio_${Date.now()}.webm`, { type: "audio/webm" });
+
+  try {
+    const { url, type, name } = await uploadToCloudinary(file);
+    
+    if (!user) return;
+
+    const userDocRef = doc(db, "usuarios", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    const nombre = userDocSnap.exists() ? userDocSnap.data().nombre : "Usuario";
+
+    await addDoc(collection(db, "chats", chatId, "mensajes"), {
+      texto: "",
+      archivoUrl: url,
+      archivoTipo: type,
+      archivoNombre: name,
+      uid: user.uid,
+      nombre: nombre,
+      timestamp: serverTimestamp(),
+      visto: false
+    });
+  } catch (error) {
+    console.error("Error enviando audio:", error);
+    alert("Error enviando audio.");
+  }
+};
+
+      setIsRecording(true);
+
+      // Timer que aumenta cada segundo
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    })
+    .catch(err => {
+      alert("No se pudo acceder al micrófono. Por favor revisa permisos.");
+      console.error(err);
+    });
+};
+
+
+  // Detiene la grabación y dispara el evento onstop
+  const stopRecording = () => {
+  if (!mediaRecorderRef.current) return;
+
+  mediaRecorderRef.current.stop();
+
+  clearInterval(recordingTimerRef.current);
+
+  setIsRecording(false);
+  setRecordingTime(0);
+};
+
+
+  const cancelRecording = () => {
+  shouldSendAudioRef.current = false;
+
+  if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    mediaRecorderRef.current.stop();
+  }
+
+  clearInterval(recordingTimerRef.current);
+  setIsRecording(false);
+  setRecordingTime(0);
+  audioChunksRef.current = [];
+};
+
+const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const { url, type, name } = await uploadToCloudinary(file);
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const userDocRef = doc(db, "usuarios", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    const nombre = userDocSnap.exists() ? userDocSnap.data().nombre : "Usuario";
+
+    await addDoc(collection(db, "chats", chatId, "mensajes"), {
+      texto: "",
+      archivoUrl: url,
+      archivoTipo: type,
+      archivoNombre: name,
+      uid: user.uid,
+      nombre: nombre,
+      timestamp: serverTimestamp(),
+    });
+  };
+
+  const photosInputRef = useRef(null);
+  const docsInputRef = useRef(null);  
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -56,28 +232,213 @@ const GroupChatScreen = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isSearchBarVisible]);
-  
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      setMessages([
-        ...messages,
-        {
-          user: currentUser,
-          message: message,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          seen: false,
-        },
-      ]);
-      setMessage("");
+
+  const formatTimestamp = (timestamp) => {
+  if (!timestamp) return "";
+  const date = timestamp.toDate();
+  const now = new Date();
+
+  const isSameDay = date.toDateString() === now.toDateString();
+
+  if (isSameDay) {
+    // Solo hora
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } else {
+    // Fecha corta (puedes cambiar el formato)
+    return date.toLocaleDateString();
+  }
+};
+  const renderMessageContent = (msg, isMe) => {
+  if (msg.archivoUrl) {
+    const tipo = msg.archivoTipo?.toLowerCase() || "";
+      // Detectar imagen por tipo o extensión
+    const esImagen = tipo.includes("image") || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(msg.archivoNombre);
+    // Detectar video por tipo o extensión
+    const esVideo = tipo.includes("video") || /\.(mp4|mov|avi|wmv|flv)$/i.test(msg.archivoNombre);
+    const esAudio = /\.(mp3|wav|ogg|webm)$/i.test(msg.archivoNombre || "");
+
+    // Cambia estas condiciones para que coincidan con tu archivoTipo exacto
+    if (esImagen) {
+      return (
+        <>
+          <a href={msg.archivoUrl} target="_blank" rel="noopener noreferrer">
+            <img
+              src={msg.archivoUrl}
+              alt={msg.archivoNombre || "Imagen enviada"}
+              style={{ maxWidth: "200px", borderRadius: "10px", marginTop: "8px" }}
+            />
+          </a>
+          <div style={{ fontSize: "0.85rem", color: isMe ? "#000" : "#ccc", marginTop: "4px" ,fontWeight: "bold"}}>
+            {msg.archivoNombre}
+          </div>
+        </>
+      );
+     } else if (esVideo) {
+      return (
+        <>
+        <a href={msg.archivoUrl} target="_blank" rel="noopener noreferrer">
+          <video
+            controls
+            src={msg.archivoUrl}
+            alt={msg.archivoNombre || "Video enviado"}
+            style={{ maxWidth: "200px", borderRadius: "10px", marginTop: "8px" }}
+          />
+          </a>
+          <div style={{ fontSize: "0.85rem", color: isMe ? "#000" : "#ccc", marginTop: "4px",fontWeight: "bold" }}>
+            {msg.archivoNombre}
+          </div>
+        </>
+      );
+      } else if (msg.archivoNombre?.endsWith(".pdf")) {
+      // PDF directo
+      return (
+        <a
+          href={msg.archivoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "flex", alignItems: "center", color: isMe ? "#000" : "#1ed760", fontWeight: "bold", marginTop: "8px", textDecoration: "none" }}
+        >
+          <span style={{ fontSize: "1.2rem", marginRight: "8px" }}>📄</span>
+          <span>{msg.archivoNombre || "Archivo adjunto"}</span>
+        </a>
+      );
+    } else if (msg.archivoNombre?.match(/\.(doc|docx)$/i)) {
+      // Word online viewer
+      const officeUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(msg.archivoUrl)}`;
+      return (
+        <a
+          href={officeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "flex", alignItems: "center", color: isMe ? "#000" : "#1ed760", fontWeight: "bold", marginTop: "8px", textDecoration: "none" }}
+        >
+          <span style={{ fontSize: "1.2rem", marginRight: "8px" }}>📄</span>
+          <span>{msg.archivoNombre || "Archivo adjunto"}</span>
+        </a>
+      );
+    }else if (esAudio) {
+      return (
+        <>
+          <a href={msg.archivoUrl} target="_blank" rel="noopener noreferrer">
+            <audio
+              controls
+              src={msg.archivoUrl}
+              style={{
+                width: "100%",       // que ocupe todo el ancho posible de la burbuja
+                maxWidth: "280px",   // límite máximo más ancho que antes
+                height: "24px",      // un poco menos alto para que se vea más compacto
+                marginTop: "8px",
+                marginBottom: "0",
+                verticalAlign: "middle",
+                borderRadius: "8px"
+              }}
+            />
+          </a>
+          <div
+            style={{
+              fontSize: "0.85rem",
+              color: isMe ? "#000" : "#ccc",
+              marginTop: "1px",
+              fontWeight: "bold",
+              maxWidth: "280px",
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
+            }}
+          >
+            {msg.archivoNombre}
+          </div>
+        </>
+      );
+    } else {
+      return (
+        <a
+          href={msg.archivoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "none" }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              color: isMe ? "#000" : "#1ed760",
+              fontWeight: "bold",
+              marginTop: "8px",
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ fontSize: "1.2rem", marginRight: "8px" }}>📄</div>
+            <div>{msg.archivoNombre || "Archivo adjunto"}</div>
+          </div>
+        </a>
+      );
     }
-  };
-  {showAttachmentOptions && (
-    <div style={styles.attachmentModal}>
-      <div style={styles.attachmentOption}>📷 Cámara</div>
-      <div style={styles.attachmentOption}>🖼️ Fotos y videos</div>
-      <div style={styles.attachmentOption}>📄 Documento</div>
-    </div>
-  )}
+  } else {
+    return <div style={styles.messageText}>{msg.texto}</div>;
+  }
+};
+  useEffect(() => {
+  if (!chatId || !user) return;
+
+  //const auth = getAuth();
+  //const user = auth.currentUser;
+  //if (!user) return;
+
+  const q = query(
+    collection(db, "chats", chatId, "mensajes"),
+    orderBy("timestamp", "asc")
+  );
+
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const msgs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setMessages(msgs);
+
+    const batch = writeBatch(db);
+    let hasUpdates = false;
+
+    msgs.forEach((msg) => {
+      if (!msg.visto && msg.uid !== user.uid) {
+        const msgRef = doc(db, "chats", chatId, "mensajes", msg.id);
+        batch.update(msgRef, { visto: true });
+        hasUpdates = true;
+      }
+    });
+
+    if (hasUpdates) {
+      await batch.commit();
+    }
+  });
+  return () => unsubscribe();
+}, [chatId,user]);
+
+  const handleSendMessage = async () => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!message.trim() || !user) return;
+
+  // Traer nombre del usuario desde Firestore
+  const userDocRef = doc(db, "usuarios", user.uid);
+  const userDocSnap = await getDoc(userDocRef);
+  const userData = userDocSnap.exists() ? userDocSnap.data() : null;
+  const nombre = userData?.nombre || "Usuario";
+
+  await addDoc(collection(db, "chats", chatId, "mensajes"), {
+    texto: message.trim(),
+    uid: user.uid,
+    nombre: nombre,
+    timestamp: serverTimestamp(),
+    visto: false 
+  });
+
+  setMessage("");
+};
+
+  const messagesEndRef = useRef(null);
+  useEffect(() => {
+  if (messagesEndRef.current) {
+    messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }
+}, [messages]);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
   return (
@@ -90,10 +451,15 @@ const GroupChatScreen = () => {
       <div style={styles.topBar}>
         <div style={styles.header}>
           <div style={styles.headerLeft}>
-            <FaUser style={styles.icon} />
+            {chatImage ? (
+              <img src={chatImage} alt="avatar" style={styles.chatAvatar} />
+            ) : (
+              <FaUser style={styles.icon} />
+            )}
             <span onClick={() => setIsGroupModalOpen(true)} style={{ cursor: "pointer" }}>
-  Alex, Mary, Professor J
-</span>          </div>
+              {chatName}
+            </span>
+         </div>
           <div style={{ position: "relative" }}>
   <FaEllipsisV
     style={styles.moreIcon}
@@ -139,62 +505,60 @@ const GroupChatScreen = () => {
 
       <div style={styles.messageList}>
         {messages.map((msg, index) => {
-          const isMe = msg.user === currentUser;
+          
+          const isMe = msg.uid === getAuth().currentUser?.uid;
+          const tipo = msg.archivoTipo?.toLowerCase() || "";
+          const esAudio =
+            msg.archivoUrl &&
+            (tipo.includes("audio") || /\.(mp3|wav|ogg|webm)$/i.test(msg.archivoNombre));
+
+
           return (
-            <div
-              key={index}
-              style={{
-                ...styles.messageItem,
-                alignSelf: isMe ? "flex-end" : "flex-start",
-                backgroundColor: isMe ? "#1ed760" : "#1a1a1a",
-              }}
-            >
-{!isMe && (
-  <div>
-    <span style={styles.userName}>{msg.user}</span>
-    <div style={styles.messageText}>{msg.message}</div>
-  </div>
-)}
-{isMe && (
-  <div style={styles.messageText}>{msg.message}</div>
-)}
+            <div key={index} style={{
+              ...styles.messageItem,
+              alignSelf: isMe ? "flex-end" : "flex-start",
+              backgroundColor: isMe ? "#1ed760" : "#1a1a1a",
+              color: isMe ? "#000" : "#fff",
+              padding: esAudio ? "2px 10px" : "10px 15px",  // menos padding vertical si es audio
+              maxWidth: esAudio ? "300px" : "70%",  
+            }}>
+              {!isMe && <span style={styles.userName}>{msg.nombre || "Usuario"}</span>}
+              
+              {renderMessageContent(msg, isMe)}
+
+
 
               <div style={styles.timeAndStatus}>
-                <span style={styles.time}>{msg.time}</span>
-                {isMe && (
-                  <span style={styles.checkIcon}>
-                    {msg.seen ? <FaCheckDouble color="#4fc3f7" /> : <FaCheck color="#bbb" />}
-                  </span>
-                )}
+                <span style={styles.time}>
+                  {formatTimestamp(msg.timestamp)}
+                </span>
+                {isMe && <FaCheckDouble color="#4fc3f7" />}
               </div>
             </div>
           );
         })}
+        <div ref={messagesEndRef} /> 
       </div>
 
             {/* Input o grabación */} 
             <div style={styles.messageInputContainer}>
-        {isRecording ? (
-          <>
+                {isRecording ? (
+            <>
             <FaTrash
-              onClick={() => {
-                setIsRecording(false);
-                setRecordingTime(0);
-              }}
+              onClick={cancelRecording}
               style={styles.trashIcon}
+              title="Cancelar grabación"
             />
             <span style={styles.recordingDot}></span>
             <span style={styles.recordingTime}>
               0:{recordingTime.toString().padStart(2, "0")}
             </span>
+
             <div className="wave-animation" style={styles.waveBars}></div>
             <button
-              onClick={() => {
-                alert("Audio enviado");
-                setIsRecording(false);
-                setRecordingTime(0);
-              }}
+              onClick={stopRecording}
               style={styles.circleButton}
+              title="Enviar audio"
             >
               <FaPaperPlane size={18} />
             </button>
@@ -206,18 +570,37 @@ const GroupChatScreen = () => {
               style={styles.attachIcon}
             />
             <input
+              type="file"
+              accept="image/*,video/*"
+              style={{ display: "none" }}
+              ref={photosInputRef}
+              onChange={handleFileChange}
+            />
+
+            <input
+              type="file"
+              accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              style={{ display: "none" }}
+              ref={docsInputRef}
+              onChange={handleFileChange}
+            />
+            <input
               type="text"
               placeholder="Escribe un mensaje"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && message.trim()) {
+                  e.preventDefault(); // para evitar salto de línea si no quieres
+                  handleSendMessage();
+                }
+              }}
               style={styles.messageInput}
             />
             <button
-              onClick={message.trim() ? handleSendMessage : () => {
-                setIsRecording(true);
-                setShowAttachmentOptions(false);
-              }}
+              onClick={message.trim() ? handleSendMessage : startRecording}
               style={styles.circleButton}
+              title={message.trim() ? "Enviar mensaje" : "Grabar audio"}
             >
               {message.trim() ? <FaPaperPlane size={18} /> : <FaMicrophone size={18} />}
             </button>
@@ -228,9 +611,25 @@ const GroupChatScreen = () => {
       {/* Modal de adjuntos (MOVER AQUÍ) */}
       {showAttachmentOptions && !isRecording && (
         <div style={styles.attachmentModal}>
-          <div style={styles.attachmentOption}>📷 Cámara</div>
-          <div style={styles.attachmentOption}>🖼️ Fotos y videos</div>
-          <div style={styles.attachmentOption}>📄 Documento</div>
+          {/*<div style={styles.attachmentOption}>📷 Cámara</div>*/}
+          <div
+            style={styles.attachmentOption}
+            onClick={() => {
+              photosInputRef.current?.click();
+              setShowAttachmentOptions(false);
+            }}
+          >
+            🖼️ Fotos y videos
+          </div>
+          <div
+            style={styles.attachmentOption}
+            onClick={() => {
+              docsInputRef.current?.click();
+              setShowAttachmentOptions(false);
+            }}
+          >
+            📄 Documento
+          </div>
         </div>
       )}
 
@@ -258,6 +657,13 @@ const styles = {
     zIndex: 1000,
     boxShadow: "0 4px 10px rgba(0,0,0,0.5)",
   },
+  chatAvatar: {
+  width: "35px",
+  height: "35px",
+  borderRadius: "50%",
+  objectFit: "cover",
+  marginRight: "10px",
+},
   searchInputOverlay: {
     width: "100%",
     padding: "10px",
@@ -317,8 +723,8 @@ const styles = {
   },
   
   attachmentModal: {
-    position: "absolute",
-    bottom: "70px",
+    position: "fixed",
+    bottom: "80px",
     left: "20px",
     backgroundColor: "#1a1a1a",
     borderRadius: "10px",

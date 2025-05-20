@@ -4,12 +4,14 @@ import { db } from "/src/services/firebase"; // Firebase Firestore
 import { getAuth } from "firebase/auth"; // Importar Firebase Auth
 import { getDocs, collection, query, where, addDoc, serverTimestamp } from "firebase/firestore"; // Métodos para obtener datos y agregar nuevos
 import logo from "../assets/logo.png"; // Logo de la app
-import MainNavbar from "../components/MainNavbar"; // Importa el componente BottomNav
+import Navbar from "../components/Navbar";
+ // Importa el componente BottomNav
 import personImage from "../assets/person.png"; // Imagen de perfil predeterminada
 import { FaBell, FaUser } from "react-icons/fa"; // Iconos de campanita y usuario
 import { FiFilter } from "react-icons/fi"; // Icono de filtro
 import BottomNav from "../components/BottomNav"; // Componente de navegación inferior
 import { getDoc,doc,updateDoc } from "firebase/firestore"; // Importar doc
+import { uploadToCloudinary } from "../utils/uploadToCloudinary"; // ajusta la ruta según dónde lo creaste
 
 
 const MainScreen = () => {
@@ -20,7 +22,6 @@ const MainScreen = () => {
   const [selectedCareer, setSelectedCareer] = useState(""); // Carrera seleccionada
   const [selectedSpecialization, setSelectedSpecialization] = useState(""); // Especialización seleccionada
   const [selectedMentorId, setSelectedMentorId] = useState(null); // Estado para guardar el mentorId
-
 
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false); // Estado para el modal de notificaciones
   const [isModalOpen, setIsModalOpen] = useState(false); // Estado para el modal de solicitud
@@ -33,8 +34,19 @@ const MainScreen = () => {
   const [showMemberResults, setShowMemberResults] = useState(false);
   const [students, setStudents] = useState([]);
   const [project, setProject] = useState(null); 
-
+  const [studentSearch, setStudentSearch] = useState("");
   const currentUser = getAuth().currentUser;
+  const [projectSummaryOnly, setProjectSummaryOnly] = useState(false); 
+  const [showProjectWarning, setShowProjectWarning] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
+  const [duplicateRequestWarning, setDuplicateRequestWarning] = useState(false);
+  const [notificaciones, setNotificaciones] = useState([]);
+const [showRechazoModal, setShowRechazoModal] = useState(false);
+const [rechazoDetalle, setRechazoDetalle] = useState(null);
+
+
+
+
   console.log(currentUser);
   useEffect(() => {
     const fetchMentors = async () => {
@@ -84,6 +96,26 @@ const MainScreen = () => {
     fetchStudents();
   }, [currentUser]);
 
+  useEffect(() => {
+  const obtenerNotificaciones = async () => {
+    const q = query(
+      collection(db, "notificaciones"),
+      where("uid", "==", currentUser?.uid),
+      where("leido", "==", false)
+    );
+    const snapshot = await getDocs(q);
+    const nuevas = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setNotificaciones(nuevas);
+  };
+
+  if (currentUser) obtenerNotificaciones();
+}, [currentUser]);
+
+
+
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
@@ -126,28 +158,62 @@ const handleSelectStudent = (student) => {
 
   // Maneja la apertura del modal de solicitud
   const handleOpenModal = (mentorId) => {
-    setSelectedMentorId(mentorId); // Guardamos el mentorId seleccionado
-    // Verificamos si el estudiante ya tiene un proyecto asignado
+    setSelectedMentorId(mentorId);
+    setProjectSummaryOnly(false);
+  
     const fetchProject = async () => {
       try {
-        const userRef = doc(db, "usuarios", getAuth().currentUser.uid); // Correcta referencia al documento del usuario
+        const userRef = doc(db, "usuarios", getAuth().currentUser.uid);
         const userDoc = await getDoc(userRef);
         const userData = userDoc.data();
-        if (userData.proyecto) {
-          setProject(userData.proyecto); // Si tiene proyecto, lo seteamos
-          setIsModalOpen(true); // Abrimos el modal de solicitud
-        } else {
-          // Si no tiene proyecto, mostramos el modal para agregar proyecto
-          setIsProjectModalOpen(true);
+  
+        if (!userData.proyecto) {
+          setShowProjectWarning(true);
+          setTimeout(() => setShowProjectWarning(false), 3000);
+          return;
         }
+  
+        const projectRef = doc(db, "proyectos", userData.proyecto);
+        const projectSnap = await getDoc(projectRef);
+        const projectData = projectSnap.data();
+        setProject(projectData);
+        console.log("Proyecto cargado:", projectData);
+        console.log("Integrantes:", projectData.members_ids);
+        // Validar solicitudes pendientes
+        const solicitudesSnapshot = await getDocs(
+          query(collection(db, "solicitudes"), where("estado", "==", "pendiente"))
+        );
+  
+        const solicitudes = solicitudesSnapshot.docs.map(doc => doc.data());
+        console.log("Solicitudes pendientes:");
+        solicitudes.forEach((s, i) => {
+          console.log(`#${i + 1}`, s.proyecto_integrantes_ids);
+        });
+        const algunIntegranteTieneSolicitud = solicitudes.some(solicitud => {
+          if (!Array.isArray(solicitud.proyecto_integrantes_ids)) return false;
+          return solicitud.proyecto_integrantes_ids.some(id =>
+            projectData.members_ids?.includes(id)
+          );
+        });
+        
+        if (algunIntegranteTieneSolicitud) {
+          setDuplicateRequestWarning(true);
+          setTimeout(() => setDuplicateRequestWarning(false), 3000);
+          return;
+        }
+  
+        // Abrir modal si todo está bien
+        setIsModalOpen(true);
       } catch (error) {
         console.error("Error al obtener el proyecto:", error);
       }
     };
-    
-
+  
     fetchProject();
   };
+  
+  
+  
 
 
   // Maneja el cierre del modal de solicitud
@@ -165,7 +231,32 @@ const handleSelectStudent = (student) => {
     return; // Detenemos el envío si no hay proyecto válido
   }
   try {
-    const docRef = await addDoc(collection(db, "solicitudes"), {
+    // 1. Verificar si ya hay solicitud pendiente
+    const solicitudesSnapshot = await getDocs(
+      query(
+        collection(db, "solicitudes"),
+        where("estado", "==", "pendiente")
+      )
+    );
+
+    const solicitudes = solicitudesSnapshot.docs.map(doc => doc.data());
+
+    // 2. Revisar si alguno de los miembros ya está en una solicitud pendiente
+    const alguienYaSolicitó = solicitudes.some(solicitud =>
+      solicitud.proyecto_integrantes_ids?.some(id => project.members_ids.includes(id))
+    );
+
+    if (alguienYaSolicitó) {
+      setDuplicateRequestWarning(true);
+      setTimeout(() => setDuplicateRequestWarning(false), 3000);
+      return;
+    }
+    let archivoURL = "";
+    if (file) {
+      archivoURL = await uploadToCloudinary(file);
+    }
+
+    await addDoc(collection(db, "solicitudes"), {
       mensaje: message,
       estado: "pendiente",
       estudiante_uid: getAuth().currentUser.uid,
@@ -173,15 +264,21 @@ const handleSelectStudent = (student) => {
       proyecto_nombre: project.name,
       proyecto_integrantes: project.members,
       proyecto_integrantes_ids: project.members_ids,
+      archivo_url: archivoURL,
       timestamp: serverTimestamp(),
     });
+    setRequestSuccess(true); // mostrar éxito
+    setTimeout(() => setRequestSuccess(false), 3000);
 
-    console.log("Solicitud enviada con éxito: ", docRef.id);
-    setIsModalOpen(false); // Cerrar el modal después de enviar
+    setIsModalOpen(false); // cerrar modal
+    setMessage(""); // limpiar mensaje
+    setFile(null);  // limpiar archivo
   } catch (error) {
     console.error("Error al enviar la solicitud: ", error);
   }
 };
+
+
  // Agregar el proyecto
  const handleAddProject = async () => {
   if (!projectName || selectedStudentsIds.length === 0) {
@@ -190,11 +287,8 @@ const handleSelectStudent = (student) => {
   }
   
   const allMembers = [
-    getAuth().currentUser.displayName,  // Nombre del estudiante logueado
-    ...selectedStudents.map(studentId => {
-      const student = students.find(s => s.id === studentId);
-      return student ? student.nombre : null; // Aquí obtienes el nombre correctamente
-    }).filter(name => name)  // Filtramos los null
+    getAuth().currentUser.displayName,
+    ...selectedStudents // ya son nombres
   ];
   console.log(getAuth().currentUser.displayName);
   const allMemberIds = [
@@ -230,12 +324,66 @@ const handleSelectStudent = (student) => {
   }
 };
  // Seleccionar estudiantes para el proyecto
- 
+ const handleProjectButtonClick = async () => {
+  try {
+    const userRef = doc(db, "usuarios", getAuth().currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+
+    if (userData.proyecto) {
+      const projectRef = doc(db, "proyectos", userData.proyecto);
+      const projectSnap = await getDoc(projectRef);
+      setProject(projectSnap.data());
+      setProjectSummaryOnly(true); // Modo resumen
+      setIsModalOpen(true);
+       // Reutiliza el modal pero con resumen
+    } else {
+      setIsProjectModalOpen(true); // Abrir modal de creación
+    }
+  } catch (error) {
+    console.error("Error al verificar proyecto:", error);
+  }
+};
+
+
 
   return (
     <div style={styles.wrapper}>
 
-<MainNavbar />
+<Navbar />
+{duplicateRequestWarning && (
+  <div style={{
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    backgroundColor: "#f44336",
+    color: "#fff",
+    padding: "12px 20px",
+    borderRadius: "8px",
+    fontSize: "0.95rem",
+    zIndex: 1000
+  }}>
+    Ya existe una solicitud pendiente por parte de tu grupo.
+  </div>
+)}
+
+{requestSuccess && (
+  <div style={{
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    backgroundColor: "#4caf50",
+    color: "#fff",
+    padding: "12px 20px",
+    borderRadius: "8px",
+    fontSize: "0.95rem",
+    zIndex: 1000
+  }}>
+    ¡Solicitud enviada con éxito!
+  </div>
+)}
+
+
 
       <div style={styles.container}>
         <div style={styles.searchContainer}>
@@ -290,33 +438,52 @@ const handleSelectStudent = (student) => {
 
       {/* Modal para enviar solicitud */}
       {isModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <h2>Enviar Solicitud</h2>
-            <div style={styles.modalContent}>
-              <textarea
-                placeholder="Escribe tu mensaje..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                style={styles.textarea}
-              />
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files[0])}
-                style={styles.fileInput}
-              />
-              <div style={styles.modalButtons}>
-                <button onClick={handleSendRequest} style={styles.modalButton1}>
-                  Enviar
-                </button>
-                <button onClick={handleCloseModal} style={styles.modalButton2}>
-                  Cancelar
-                </button>
-              </div>
+  <div style={styles.modalOverlay}>
+    <div style={styles.modal}>
+      {projectSummaryOnly ? (
+        <>
+          <h2>Resumen de tu proyecto</h2>
+          <p><strong>Nombre:</strong> {project?.name}</p>
+          <p><strong>Integrantes:</strong></p>
+          <ul>
+            {project?.members?.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+          <button onClick={handleCloseModal} style={styles.modalButton2}>
+            Cerrar
+          </button>
+        </>
+      ) : (
+        <>
+          <h2>Enviar Solicitud</h2>
+          <div style={styles.modalContent}>
+            <textarea
+              placeholder="Escribe tu mensaje..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              style={styles.textarea}
+            />
+            <input
+              type="file"
+              onChange={(e) => setFile(e.target.files[0])}
+              style={styles.fileInput}
+            />
+            <div style={styles.modalButtons}>
+              <button onClick={handleSendRequest} style={styles.modalButton1}>
+                Enviar
+              </button>
+              <button onClick={handleCloseModal} style={styles.modalButton2}>
+                Cancelar
+              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
+    </div>
+  </div>
+)}
+
 
 
       {/* Modal de notificaciones */}
@@ -335,8 +502,44 @@ const handleSelectStudent = (student) => {
           </div>
         </div>
       )}
+{showRechazoModal && rechazoDetalle && (
+  <div style={styles.modalOverlay}>
+    <div style={styles.modal}>
+      <h2>Proyecto Rechazado</h2>
+      <p><strong>Proyecto:</strong> {rechazoDetalle.proyecto_nombre}</p>
+      <p><strong>Motivo:</strong> {rechazoDetalle.motivo}</p>
+      <button
+        style={styles.modalButton1}
+        onClick={async () => {
+          await updateDoc(doc(db, "notificaciones", rechazoDetalle.id), { leido: true });
+          setShowRechazoModal(false);
+        }}
+      >
+        Aceptar
+      </button>
+    </div>
+  </div>
+)}
+
+
 {/* Botón flotante para ver o agregar proyecto */}
-<button onClick={() => setIsProjectModalOpen(true)} style={styles.projectFabButton}>
+
+{showProjectWarning && (
+  <div style={{
+    position: "fixed",
+    bottom: "160px",
+    right: "20px",
+    backgroundColor: "#f44336",
+    color: "#fff",
+    padding: "10px 15px",
+    borderRadius: "8px",
+    fontSize: "0.9rem",
+    zIndex: 1000
+  }}>
+    Debes crear un proyecto antes de enviar una solicitud.
+  </div>
+)}
+<button onClick={handleProjectButtonClick} style={styles.projectFabButton}>
   📁
 </button>
 
@@ -355,21 +558,60 @@ const handleSelectStudent = (student) => {
 
             {/* Mostrar estudiantes disponibles */}
             {/* Mostrar estudiantes disponibles */}
-<div style={{ ...styles.modalInput, padding: 0, border: "none" }}>
-  <label style={{ marginBottom: "5px", display: "block", fontWeight: "bold" }}>
-    Integrantes del Proyecto:
-  </label>
-  {students.map((student, index) => (
-    <label key={index} style={{ display: "block", marginBottom: "10px" }}>
-      <input
-        type="checkbox"
-        onChange={() => handleSelectStudent(student)} // Usamos el handleSelectStudent
-        checked={selectedStudentsIds.includes(student.id)} // Marcamos si ya está seleccionado
-      />
-      {student.nombre}
-    </label>
-  ))}
-</div>
+            <label style={{ marginBottom: "8px", fontWeight: "bold" }}>Añadir otro integrante</label>
+
+            <input
+  type="text"
+  placeholder="Buscar estudiante..."
+  value={studentSearch}
+  onChange={(e) => setStudentSearch(e.target.value)}
+  style={styles.modalInput}
+/>
+
+{studentSearch.trim() !== "" && (
+  <div style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid #555", borderRadius: "8px", padding: "10px" }}>
+    {students
+      .filter((s) =>
+        s.nombre.toLowerCase().includes(studentSearch.toLowerCase())
+      )
+      .map((student) => {
+        const isSelected = selectedStudentsIds.includes(student.id);
+        const hasProject = !!student.proyecto;
+
+        const handleClick = () => {
+          if (hasProject) return; // no permite selección
+
+          // Reemplaza al anterior
+          setSelectedStudents([student.nombre]);
+          setSelectedStudentsIds([student.id]);
+        };
+
+        return (
+          <div key={student.id}>
+            <div
+              onClick={handleClick}
+              style={{
+                padding: "8px",
+                marginBottom: "6px",
+                backgroundColor: isSelected ? "#1ed760" : "#333",
+                color: hasProject ? "#aaa" : "#fff",
+                borderRadius: "5px",
+                cursor: hasProject ? "not-allowed" : "pointer",
+              }}
+            >
+              {student.nombre}
+            </div>
+            {hasProject && (
+              <p style={{ color: "#f44336", marginTop: "4px", marginBottom: "10px", fontSize: "0.85rem" }}>
+                Este estudiante ya forma parte de un proyecto.
+              </p>
+            )}
+          </div>
+        );
+      })}
+  </div>
+)}
+
 
 
             <button style={styles.modalButton1} onClick={handleAddProject}>
@@ -381,7 +623,7 @@ const handleSelectStudent = (student) => {
           </div>
         </div>
       )}
-
+      
       <BottomNav />
     </div>
   );

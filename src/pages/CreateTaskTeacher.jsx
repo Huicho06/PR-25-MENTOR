@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MainNavbar from "../components/MainNavbar";
-import Navbar from "../components/Navbar";
+ // si lo estás usando desde ese archivo
+
 
 const CreateTaskTeacher = () => {
   const navigate = useNavigate();

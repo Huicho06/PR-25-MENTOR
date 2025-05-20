@@ -1,27 +1,104 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // Para la navegación
 import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
 import { FiMessageCircle } from "react-icons/fi"; // Icono de mensaje
-import BottomNavT from "../components/BottomNavTeacher"; // Para la barra de navegación
+import BottomNavTeacher from "../components/BottomNavTeacher"; // Para la barra de navegación
 import NavbarT from "../components/NavbarTeacher"; // Para la barra de navegación
 import MainNavbar from "../components/MainNavbar"; // Para la barra de navegación
+import { getAuth } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "/src/services/firebase";
+import { doc, getDoc } from "firebase/firestore";
+
+const getUserInfoByUID = async (uid) => {
+  const docSnap = await getDoc(doc(db, "usuarios", uid));
+  if (docSnap.exists()) return docSnap.data();
+  return { nombre: "Usuario", foto: null };
+};
 
 const ChatScreenTeacher = () => {
-  const [messages, setMessages] = useState([
-    { user: "Natasha", message: "Hi, Good Evening Bro..!", time: "14:59", unread: 3, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Mary J", message: "How was your Graphic de..!", time: "06:35", unread: 2, avatar: "https://placeimg.com/100/100/people" },
-    { user: "John", message: "How are you?", time: "08:10", unread: 0, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Mia", message: "OMG, This is Amazing..", time: "21:07", unread: 5, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Maria", message: "Wow, This is Really Epic", time: "09:15", unread: 0, avatar: "https://placeimg.com/100/100/people" },
-    { user: "Tiya", message: "Hi, Good Evening Bro..!", time: "14:59", unread: 3, avatar: "https://placeimg.com/100/100/people" },
-  ]);
-
+  const [allChats, setAllChats] = useState([]);       // TODOS los chats
+  const [visibleChats, setVisibleChats] = useState([]); // Chats que se muestran
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("chat"); // Estado para manejar qué botón está activo
-  const [searchTerm, setSearchTerm] = useState(""); // Para la barra de búsqueda
-  const navigate = useNavigate(); // Hook para la navegación
+ // Hook para la navegación
+
+ useEffect(() => {
+    const fetchChats = async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const q = query(
+        collection(db, "chats"),
+        where("participantes", "array-contains", user.uid)
+      );
+       const snapshot = await getDocs(q);
+      const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const personalizedChats = await Promise.all(chatList.map(async (chat) => {
+        let nombrePersonalizado = chat.nombre;
+        let fotoPerfil = null;
+
+        if (chat.tipo === "personal" || chat.tipo === "tutor_estudiante") {
+          const otroUID = chat.participantes.find(uid => uid !== user.uid);
+          const otro = await getUserInfoByUID(otroUID);
+          nombrePersonalizado = otro.nombre || "Usuario";
+          fotoPerfil = otro.foto || null;
+        } else if (chat.tipo === "grupo_proyecto") {
+          nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
+          fotoPerfil = null;
+        }
+        const mensajesRef = collection(db, "chats", chat.id, "mensajes");
+        const qNoLeidos = query(
+          mensajesRef,
+          where("visto", "==", false),
+          where("uid", "!=", user.uid)
+        );
+        const snapshotNoLeidos = await getDocs(qNoLeidos);
+        const noLeidosCount = snapshotNoLeidos.size;
+
+        return { 
+          ...chat, 
+          nombreMostrado: nombrePersonalizado, 
+          foto: fotoPerfil,
+          noLeidosCount
+        };      
+      }));
+      setAllChats(personalizedChats);
+
+      // Inicialmente mostrar solo chats grupales
+      setVisibleChats(personalizedChats.filter(chat => chat.tipo === "grupo_proyecto"));
+    };
+
+    fetchChats();
+  }, []);
+
+useEffect(() => {
+  if (!searchTerm.trim()) {
+    setVisibleChats(allChats.filter(chat => chat.tipo === "grupo_proyecto"));
+  } else {
+    const filtered = allChats.filter(chat =>
+      chat.nombreMostrado?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setVisibleChats(filtered);
+  }
+}, [searchTerm, allChats]);
 
   const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+    const term = e.target.value;
+    setSearchTerm(term);
+    if (!term.trim()) {
+      // Si está vacío, mostrar solo chats grupales
+      setVisibleChats(allChats.filter(chat => chat.tipo === "grupo_proyecto"));
+    } else {
+      // Si hay búsqueda, mostrar todos los chats que coincidan con el nombre personalizado
+      const filtered = allChats.filter(chat =>
+        chat.nombreMostrado?.toLowerCase().includes(term.toLowerCase())
+      );
+      setVisibleChats(filtered);
+    }
   };
 
   // Función para cambiar el estado del botón activo
@@ -30,44 +107,48 @@ const ChatScreenTeacher = () => {
   };
 
   // Función para redirigir al chat grupal al hacer clic en un mensaje
-  const handleChatClick = (user) => {
-    // Navega a la pantalla del chat del grupo y pasa el nombre del usuario o identificador
-    navigate("/groupChat", { state: { participants: user } });
+  const handleChatClick = (chat) => {
+    navigate(`/chat/${chat.id}`);
   };
 
   return (
     <div style={styles.wrapper}>
       <MainNavbar />
-      <NavbarT />
-      {/* Listado de mensajes */}
-      <div style={styles.messageList}>
-        {messages
-          .filter((message) => message.user.toLowerCase().includes(searchTerm.toLowerCase())) // Filtra por búsqueda
-          .map((message, index) => (
+      <NavbarT searchTerm={searchTerm} setSearchTerm={setSearchTerm}/>
+      
+      <div style={{ padding: "20px" }}>
+        <div style={styles.messageList}>
+
+          {visibleChats.map((chat, index) => (
             <div
-              key={index}
-              style={styles.messageItem}
-              onClick={() => handleChatClick(message.user)} // Redirige al hacer clic en un mensaje
+              key={chat.id}  // CAMBIAR index POR chat.id SOLO
+              style={{
+                ...styles.messageItem,
+                  border: chat.noLeidosCount > 0 ? "2px solid #1ed760" : "none",
+                  fontWeight: chat.noLeidosCount > 0 ? "bold" : "normal",
+                  position: "relative", // necesario para posicionar el badge
+                }}
+              onClick={() => handleChatClick(chat)}
             >
               <div style={styles.userInfo}>
-                <img src={message.avatar} alt={message.user} style={styles.userIcon} />
-                <div>
-                  <h3 style={styles.userName}>{message.user}</h3>
-                  <p style={styles.messageText}>{message.message}</p>
-                </div>
-              </div>
-              <div style={styles.messageDetails}>
-                <span style={styles.time}>{message.time}</span>
-                {message.unread > 0 && (
-                  <div style={styles.unreadBadge}>
-                    <span>{message.unread}</span>
+                {chat.foto ? (
+                  <img src={chat.foto} alt="avatar" style={styles.userIcon} />
+                ) : (
+                  <div style={styles.userIconPlaceholder}>
+                    {chat.nombreMostrado.charAt(0)}
                   </div>
                 )}
+                <div>
+                  <h3 style={styles.userName}>{chat.nombreMostrado}</h3>
+                </div>
               </div>
             </div>
           ))}
+
+
+        </div>
       </div>
-      <BottomNavT />
+      <BottomNavTeacher />
     </div>
   );
 };
@@ -78,133 +159,60 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    padding: "20px",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 0",
-    borderBottom: "1px solid #333",
-  },
-  backButton: {
-    background: "transparent",
-    border: "none",
-    color: "#fff",
-    fontSize: "20px",
-    cursor: "pointer",
-  },
-  chatTasksBtns: {
-    display: "flex",
-    justifyContent: "center",
-    marginTop: "20px",
-    marginBottom: "20px",
-  },
-  chatBtn: {
-    backgroundColor: "#333", // Fondo gris para Chat
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    marginRight: "10px",
-    fontWeight: "bold",
-  },
-  chatBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Chat activo
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    marginRight: "10px",
-    fontWeight: "bold",
-  },
-  tasksBtn: {
-    backgroundColor: "#333", // Fondo gris para Tareas
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  tasksBtnActive: {
-    backgroundColor: "#1ed760", // Verde para Tareas activo
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "30px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  searchContainer: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "20px",
-  },
-  searchInput: {
-    width: "90%",
-    padding: "10px",
-    borderRadius: "15px",
-    backgroundColor: "#333",
-    color: "#fff",
-    border: "none",
-    textAlign: "center",
   },
   messageList: {
-    marginTop: "20px",
     overflowY: "auto",
-    height: "calc(100vh - 150px)", // Ajustar la altura del scroll
+    maxHeight: "calc(100vh - 200px)",
   },
+  unreadBadge: {
+  position: "absolute",
+  top: "10px",
+  right: "10px",
+  backgroundColor: "#f44336",
+  color: "#fff",
+  borderRadius: "12px",
+  padding: "4px 8px",
+  fontSize: "0.8rem",
+  fontWeight: "bold",
+  minWidth: "24px",
+  textAlign: "center",
+  lineHeight: "1.2",
+  userSelect: "none",
+},
   messageItem: {
     display: "flex",
-    justifyContent: "space-between",
     padding: "15px",
     backgroundColor: "#1a1a1a",
-    marginBottom: "20px",
+    marginBottom: "15px",
     borderRadius: "10px",
     color: "#fff",
+    cursor: "pointer",
   },
   userInfo: {
     display: "flex",
-    gap: "10px",
+    alignItems: "center",
+    gap: "15px",
   },
   userIcon: {
     width: "40px",
     height: "40px",
     borderRadius: "50%",
-    objectFit: "cover", // Asegura que la imagen sea circular
+    objectFit: "cover",
+  },
+  userIconPlaceholder: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    backgroundColor: "#333",
+    color: "#fff",
+    fontSize: "1.5rem",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
   },
   userName: {
     fontSize: "1.2rem",
     fontWeight: "bold",
-  },
-  messageText: {
-    fontSize: "1rem",
-    color: "#ccc",
-    marginTop: "5px",
-  },
-  messageDetails: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-  },
-  time: {
-    fontSize: "0.9rem",
-    color: "#ccc",
-  },
-  unreadBadge: {
-    backgroundColor: "#f44336",
-    color: "#fff",
-    borderRadius: "50%",
-    padding: "5px 10px",
-    fontSize: "0.9rem",
-    marginTop: "5px",
   },
 };
 

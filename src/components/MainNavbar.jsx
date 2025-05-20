@@ -3,19 +3,28 @@ import logo from "../assets/logo.png";
 import { FaBell, FaUser } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
+import { db } from "../services/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const modalRef = useRef(null); // Referencia para detectar clics fuera
+const [hasNewNotifications, setHasNewNotifications] = useState(true);
 
   const handleViewProfile = () => {
     navigate("/ProfileScreen");
   };
 
   const toggleNotificationModal = () => {
-    setIsNotificationModalOpen((prev) => !prev);
-  };
+  setIsNotificationModalOpen((prev) => {
+    const nextState = !prev;
+    if (nextState) setHasNewNotifications(false); // al abrir, se marcan como vistas
+    return nextState;
+  });
+};
+
 
   // Cerrar modal al hacer clic fuera
   useEffect(() => {
@@ -34,28 +43,66 @@ const Navbar = () => {
     };
   }, [isNotificationModalOpen]);
 
-  const [notifications] = useState([
-    { id: 1, message: "Nueva solicitud de mentoría de Ramal Cart" },
-    { id: 2, message: "Has recibido un mensaje de Mary Jones" },
-    { id: 3, message: "Angela Mohammed actualizó su perfil" },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+const [user, setUser] = useState(null);
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(getAuth(), (firebaseUser) => {
+    if (firebaseUser) {
+      setUser(firebaseUser);
+    }
+  });
+  return () => unsubscribe();
+}, []);
+useEffect(() => {
+  if (!user) return;
+
+  const fetchSolicitudes = async () => {
+    try {
+      const q = query(
+        collection(db, "solicitudes"),
+        where("tutor_uid", "==", user.uid),
+        where("estado", "==", "pendiente")
+      );
+      const querySnapshot = await getDocs(q);
+      const fetchedNotifications = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        message: `Solicitud de mentoría de ${doc.data().proyecto_integrantes?.join(", ") ?? "Sin integrantes"} pendiente`,
+      }));
+      setNotifications(fetchedNotifications);
+    } catch (error) {
+      console.error("Error al cargar notificaciones:", error);
+    }
+  };
+
+  fetchSolicitudes();
+}, [user]);
+
 
   return (
     <div style={styles.navBar}>
       <img src={logo} alt="Logo Mentor" style={styles.logo} />
       <div style={styles.rightNav}>
         <div style={{ position: "relative" }}>
-          <FaBell style={styles.bellIcon} onClick={toggleNotificationModal} />
+          <div style={{ position: "relative" }}>
+  <FaBell style={styles.bellIcon} onClick={toggleNotificationModal} />
+  {hasNewNotifications && <div style={styles.notificationDot}></div>}
+</div>
+
           {isNotificationModalOpen && (
             <div ref={modalRef} style={styles.notificationModal}>
               <h2 style={{ marginTop: 0 }}>Notificaciones</h2>
               <div style={styles.notificationContent}>
                 {notifications.map((notification) => (
-                  <div key={notification.id} style={styles.notificationItem}>
-                    <div style={styles.notificationIcon}></div>
-                    <p style={styles.notificationMessage}>{notification.message}</p>
-                  </div>
-                ))}
+  <div
+    key={notification.id}
+    style={styles.notificationItem}
+    onClick={() => window.scrollToRequest(notification.id)}
+  >
+    <div style={styles.notificationIcon}></div>
+    <p style={styles.notificationMessage}>{notification.message}</p>
+  </div>
+))}
+
               </div>
             </div>
           )}
@@ -96,17 +143,17 @@ const styles = {
 
   },
   notificationModal: {
-    position: "absolute",
-    top: "30px",
-    right: 0,
-    backgroundColor: "#2a2a2a",
-    padding: "20px",
-    borderRadius: "10px",
-    color: "#fff",
-    width: "300px",
-    boxShadow: "0px 4px 20px rgba(0,0,0,0.6)",
-    zIndex: 1000,
-  },
+  position: "absolute",
+  top: "30px",
+  right: 0,
+  backgroundColor: "#2a2a2a",
+  padding: "20px",
+  borderRadius: "10px",
+  color: "#fff",
+  width: "400px", // ← antes 300px
+  boxShadow: "0px 4px 20px rgba(0,0,0,0.6)",
+  zIndex: 1000,
+},
   notificationContent: {
     marginTop: "10px",
   },
@@ -131,6 +178,17 @@ const styles = {
     fontSize: "1rem",
     color: "#ccc",
   },
+  notificationDot: {
+  position: "absolute",
+  top: "0px",
+  right: "10px",
+  width: "10px",
+  height: "10px",
+  backgroundColor: "#f44336", // rojo
+  borderRadius: "50%",
+  zIndex: 10,
+}
+
 };
 
 export default Navbar;

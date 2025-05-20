@@ -30,6 +30,8 @@ import CreateTaskTeacher from "../pages/CreateTaskTeacher";
 import DetailsTaskTeacher from "../pages/DetailsTaskTeacher";
 import UpdateTaskTeacher from "../pages/UpdateTaskTeacher";
 import DetailsTaskStudent from "../pages/DetailsTaskStudent";
+import StudentHome from "../pages/StudentHome.jsx";
+import GroupChatScreen from "../pages/GroupChatScreen";
 
 
 const AppRouter = () => {
@@ -61,12 +63,13 @@ const AppRouter = () => {
         <Route path="/ChatScreenTeacher" element={<ChatScreenTeacher />} />
         <Route path="/TaskScreen" element={<TaskScreen />} />
         <Route path="/TaskScreenTeacher" element={<TaskScreenTeacher />} />
-        <Route path="/GroupChat" element={<GroupChat />} />
+        <Route path="/GroupChat" element={<GroupChat/>} />
         <Route path="/create-task-teacher" element={<CreateTaskTeacher />} />
         <Route path="/DetailsTaskTeacher" element={<DetailsTaskTeacher />} />
         <Route path="/UpdateTaskTeacher" element={<UpdateTaskTeacher />} />
         <Route path="/DetailsTaskStudent" element={<DetailsTaskStudent />} />
-
+        <Route path="/StudentHome" element={<StudentHome/>} />
+        <Route path="/chat/:chatId" element={<GroupChatScreen/>} />
       </Routes>
     </BrowserRouter>
   );

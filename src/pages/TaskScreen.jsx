@@ -2,9 +2,8 @@ import React, { useState } from "react";
 import { FaSearch } from "react-icons/fa"; // Icono de búsqueda
 import { FiMessageCircle } from "react-icons/fi"; // Icono de mensaje
 import BottomNav from "../components/BottomNav"; // Para la barra de navegación
-import Navbar from "../components/Navbar"; // Para la barra de navegación
-import MainNavbar from "../components/MainNavbar"; // Para la barra de navegación
-
+import Navbar from "../components/Navbar"; // Para la barra de navegación // Para la barra de navegación
+import NavbarStudent from "../components/NavbarStudent";
 const TaskScreen = () => {
   const [tasks, setTasks] = useState([
     { title: "Rombos", dueDate: "2 mayo 23:59", course: "PROCESAMIENTO DIGITAL DE IMAGENES", group: "Grupo C" },
@@ -21,8 +20,9 @@ const TaskScreen = () => {
 
   return (
     <div style={styles.wrapper}>
-      <MainNavbar />
+      
       <Navbar />
+      <NavbarStudent />
       {/* Listado de tareas */}
       <div style={styles.taskList}>
         {tasks

@@ -4,6 +4,7 @@ import BottomNavT from "../components/BottomNavTeacher";
 import NavbarT from "../components/NavbarTeacher";
 import MainNavbar from "../components/MainNavbar";
 import { useNavigate } from "react-router-dom";
+import BottomNavTeacher from "../components/BottomNavTeacher";
 
 
 const TaskScreenTeacher = () => {
@@ -75,7 +76,7 @@ const TaskScreenTeacher = () => {
         <FaPlus size={18} />
       </button>
 
-      <BottomNavT />
+      <BottomNavTeacher />
     </div>
   );
 };
