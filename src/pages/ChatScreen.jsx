@@ -100,7 +100,7 @@ useEffect(() => {
     <div style={styles.wrapper}>
  
       <Navbar />
-    <NavbarStudent />
+    <NavbarStudent searchTerm={searchTerm} setSearchTerm={setSearchTerm}/>
       {/* Listado de mensajes */}
       <div style={styles.messageList}>
        {chats

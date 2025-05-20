@@ -35,7 +35,7 @@ const MainScreen = () => {
   const [students, setStudents] = useState([]);
   const [project, setProject] = useState(null); 
   const [studentSearch, setStudentSearch] = useState("");
-  const currentUser = getAuth().currentUser;
+  //const currentUser = getAuth().currentUser;
   const [projectSummaryOnly, setProjectSummaryOnly] = useState(false); 
   const [showProjectWarning, setShowProjectWarning] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
@@ -43,7 +43,36 @@ const MainScreen = () => {
   const [notificaciones, setNotificaciones] = useState([]);
 const [showRechazoModal, setShowRechazoModal] = useState(false);
 const [rechazoDetalle, setRechazoDetalle] = useState(null);
+const [currentUser, setCurrentUser] = useState(null);
+const [currentUserName, setCurrentUserName] = useState("");
 
+useEffect(() => {
+  const auth = getAuth();
+  const unsubscribe = auth.onAuthStateChanged(user => {
+    setCurrentUser(user);
+  });
+  return unsubscribe;
+}, []);
+useEffect(() => {
+  if (!currentUser) return;
+
+  const fetchUserName = async () => {
+    try {
+      const userDoc = await getDoc(doc(db, "usuarios", currentUser.uid));
+      if (userDoc.exists()) {
+        setCurrentUserName(userDoc.data().nombre || "Nombre desconocido");
+        console.log("Nombre usuario:", userDoc.data().nombre);
+      } else {
+        setCurrentUserName("Nombre desconocido");
+      }
+    } catch (error) {
+      console.error("Error al obtener nombre del usuario:", error);
+      setCurrentUserName("Nombre desconocido");
+    }
+  };
+
+  fetchUserName();
+}, [currentUser]);
 
 
 
@@ -95,6 +124,28 @@ const [rechazoDetalle, setRechazoDetalle] = useState(null);
     //fetchMentors();
     fetchStudents();
   }, [currentUser]);
+
+
+  useEffect(() => {
+  const fetchCurrentUserName = async () => {
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) return;
+
+    try {
+      const userDoc = await getDoc(doc(db, "usuarios", currentUser.uid));
+      if (userDoc.exists()) {
+        setCurrentUserName(userDoc.data().nombre || "Nombre desconocido");
+      } else {
+        setCurrentUserName("Nombre desconocido");
+      }
+    } catch (error) {
+      console.error("Error al obtener nombre del usuario:", error);
+      setCurrentUserName("Nombre desconocido");
+    }
+  };
+
+  fetchCurrentUserName();
+}, []);
 
   useEffect(() => {
   const obtenerNotificaciones = async () => {
@@ -290,12 +341,12 @@ const handleSelectStudent = (student) => {
     console.error("Solo puedes seleccionar máximo un estudiante.");
     return;
   }
-  
   const allMembers = [
-    getAuth().currentUser.displayName,
+    currentUserName || "Nombre desconocido",  // <-- usa aquí currentUserName
     ...selectedStudents // ya son nombres
   ];
-  console.log(getAuth().currentUser.displayName);
+ console.log("Nombre usado para proyecto:", currentUserName);
+
   const allMemberIds = [
     getAuth().currentUser.uid,  // ID del estudiante logueado
     ...selectedStudentsIds,  // IDs de los estudiantes seleccionados
@@ -314,7 +365,7 @@ const handleSelectStudent = (student) => {
     console.log("Proyecto agregado con éxito: ", docRef.id);
 
     // Actualizamos el proyecto del estudiante logueado
-    const studentRef = doc(db, "usuarios", getAuth().currentUser.uid);
+    const studentRef = doc(db, "usuarios", currentUser.uid);
     await updateDoc(studentRef, { proyecto: docRef.id });
 
     // Actualizamos el proyecto de los estudiantes seleccionados

@@ -8,10 +8,11 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const Navbar = () => {
+  
   const navigate = useNavigate();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const modalRef = useRef(null); // Referencia para detectar clics fuera
-const [hasNewNotifications, setHasNewNotifications] = useState(true);
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
 
   const handleViewProfile = () => {
     navigate("/ProfileScreen");
@@ -28,13 +29,7 @@ const [hasNewNotifications, setHasNewNotifications] = useState(true);
   };
 
 
-  const toggleNotificationModal = () => {
-  setIsNotificationModalOpen((prev) => {
-    const nextState = !prev;
-    if (nextState) setHasNewNotifications(false); // al abrir, se marcan como vistas
-    return nextState;
-  });
-};
+
 
 
   // Cerrar modal al hacer clic fuera
@@ -64,10 +59,10 @@ useEffect(() => {
   });
   return () => unsubscribe();
 }, []);
-useEffect(() => {
-  if (!user) return;
 
+// Función para obtener solicitudes pendientes del usuario
   const fetchSolicitudes = async () => {
+    if (!user) return;  // seguridad extra
     try {
       const q = query(
         collection(db, "solicitudes"),
@@ -85,10 +80,36 @@ useEffect(() => {
     }
   };
 
+ // Ejecutar fetchSolicitudes solo cuando user cambia y NO es null
+  useEffect(() => {
+    if (user) {
+      fetchSolicitudes();
+    } else {
+      setNotifications([]);  // Limpiar notificaciones si no hay usuario
+    }
+  }, [user]);
+
+  
+// Mostrar punto rojo si hay notificaciones y el modal NO está abierto
+  useEffect(() => {
+    if (notifications.length > 0 && !isNotificationModalOpen) {
+      setHasNewNotifications(true);
+    } else {
+      setHasNewNotifications(false);
+    }
+  }, [notifications, isNotificationModalOpen]);
+
+  // Toggle modal notificaciones y limpiar indicador
+  const toggleNotificationModal = () => {
+    setIsNotificationModalOpen((prev) => {
+      const nextState = !prev;
+      if (nextState) {
+        setHasNewNotifications(false);
+      }
+      return nextState;
+    });
+  };
   fetchSolicitudes();
-}, [user]);
-
-
   return (
     <div style={styles.navBar}>
       <img src={logo} alt="Logo Mentor" style={styles.logo} />

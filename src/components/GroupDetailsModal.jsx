@@ -1,70 +1,253 @@
 import React, { useState } from "react";
+import { db } from "../services/firebase";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { useEffect } from "react";
 
-const GroupDetailsModal = ({ onClose }) => {
+
+
+
+const GroupDetailsModal = ({ onClose, chatId, currentUserId }) => {
   const [activeTab, setActiveTab] = useState("miembros");
+  const [miembros, setMiembros] = React.useState([]);
+const [multimedia, setMultimedia] = React.useState([]);
+const [archivos, setArchivos] = React.useState([]);
+const [tareas, setTareas] = React.useState([]);
 
-  const renderContent = () => {
+  
+
+
+  useEffect(() => {
+  if (!chatId) return;
+
+  const fetchData = async () => {
+    // 1. Obtener info del chat para sacar participantes
+    const chatRef = doc(db, "chats", chatId);
+    const chatSnap = await getDoc(chatRef);
+    if (!chatSnap.exists()) return;
+    const chatData = chatSnap.data();
+    const participantes = chatData.participantes || [];
+
+    // 2. Traer datos completos de cada participante
+    const miembrosData = [];
+    for (const uid of participantes) {
+      const userSnap = await getDoc(doc(db, "usuarios", uid));
+      if (userSnap.exists()) {
+        miembrosData.push({
+          ...userSnap.data(),
+          id: uid,
+          esActual: uid === currentUserId,  // currentUserId lo pasas como prop
+        });
+      }
+    }
+    setMiembros(miembrosData);
+let nombreProyecto = "";
+
+    // 3. Obtener mensajes multimedia y archivos
+    const mensajesRef = collection(db, "chats", chatId, "mensajes");
+    const mensajesSnap = await getDocs(mensajesRef);
+
+    const media = [];
+    const docs = [];
+
+    mensajesSnap.forEach((doc) => {
+      const m = doc.data();
+      if (m.archivoUrl) {
+        const tipo = m.archivoTipo?.toLowerCase() || "";
+        const nombre = m.archivoNombre || "";
+
+        if (
+          tipo.includes("image") || tipo.includes("video") ||
+          /\.(jpg|png|gif|mp4|mov)$/i.test(nombre)
+        ) {
+          media.push(m);
+        } else {
+          docs.push(m);
+        }
+      }
+    });
+    
+const solicitudesRef = collection(db, "solicitudes");
+const qSolicitud = query(
+  solicitudesRef,
+  where("tutor_uid", "in", participantes)
+);
+
+const solicitudSnap = await getDocs(qSolicitud);
+if (!solicitudSnap.empty) {
+  nombreProyecto = solicitudSnap.docs[0].data().proyecto_nombre;
+}
+
+if (nombreProyecto) {
+  const tareasRef = collection(db, "tareas");
+  const qTareas = query(tareasRef, where("grupo", "==", nombreProyecto));
+  const tareasSnap = await getDocs(qTareas);
+  const tareasData = tareasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  setTareas(tareasData);
+}
+if (!solicitudSnap.empty) {
+  nombreProyecto = solicitudSnap.docs[0].data().proyecto_nombre;
+}
+
+
+    setMultimedia(media);
+    setArchivos(docs);
+
+// Luego usar nombreProyecto para filtrar tareas
+const tareasRef = collection(db, "tareas");
+const qTareas = query(tareasRef, where("grupo", "==", nombreProyecto));
+const tareasSnap = await getDocs(qTareas);
+const tareasData = tareasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+setTareas(tareasData);
+  };
+
+  fetchData();
+}, [chatId, currentUserId]);
+
+
+
+ const renderContent = () => {
     switch (activeTab) {
       case "miembros":
-        return (
-          <div style={styles.content}>
-            <input type="text" placeholder="Buscar miembros" style={styles.searchInput} />
-            <div style={styles.memberItem}>👤 Tú <span style={styles.status}>En línea</span></div>
-            <div style={styles.memberItem}>👤 Pablin <span style={styles.status}>Admin.</span></div>
-            <div style={styles.memberItem}>👤 Daniel Escobar</div>
-            <div style={styles.memberItem}>👤 Erick</div>
-            <div style={styles.memberItem}>👤 Franco</div>
-            <div style={styles.memberItem}>👤 Lolita Uní</div>
+        return miembros.map(m => (
+          <div key={m.id} style={styles.memberItem}>
+            👤 {m.nombre} {m.esActual ? <span style={styles.status}>Tú</span> : null} {m.admin ? <span style={{color: "green"}}>Admin.</span> : null}
           </div>
-        );
+        ));
       case "multimedia":
-        return (
-          <div style={styles.gallery}>
-            {[...Array(12)].map((_, i) => (
-              <div key={i} style={styles.mediaItem}>📸</div>
-            ))}
+  return (
+    <div style={styles.gallery}>
+      {multimedia.length === 0 && <p>No hay multimedia para mostrar.</p>}
+      {multimedia.map((m, i) => {
+        const tipo = m.archivoTipo?.toLowerCase() || "";
+        const nombre = m.archivoNombre || "";
+
+        if (tipo.includes("image") || /\.(jpg|jpeg|png|gif)$/i.test(nombre)) {
+          return (
+            <a
+              key={i}
+              href={m.archivoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.mediaItem}
+            >
+              <img
+                src={m.archivoUrl}
+                alt={nombre}
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }}
+              />
+            </a>
+          );
+        } else if (tipo.includes("video") || /\.(mp4|mov|avi|wmv)$/i.test(nombre)) {
+          return (
+            <a
+              key={i}
+              href={m.archivoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.mediaItem}
+            >
+              <video
+                src={m.archivoUrl}
+                style={{ width: "100%", height: "100%", borderRadius: "8px" }}
+                controls
+              />
+            </a>
+          );
+        } else {
+          return null;
+        }
+      })}
+    </div>
+  );
+
+case "archivos":
+  return archivos.length === 0 ? (
+    <p>No hay archivos para mostrar.</p>
+  ) : (
+    archivos.map((a, i) => (
+      <a
+        key={i}
+        href={a.archivoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={styles.fileItemLink}
+        title={`Abrir ${a.archivoNombre}`}
+      >
+        📄 {a.archivoNombre}
+      </a>
+    ))
+  );
+    case "tareas":
+      return tareas.length === 0 ? (
+        <p>No hay tareas asignadas.</p>
+      ) : (
+        tareas.map((t) => (
+          <div key={t.id || t.titulo} style={styles.taskItem}>
+            📝 {t.titulo || t.descripcion || "Sin título"}
           </div>
-        );
-      case "archivos":
-        return (
-          <div style={styles.content}>
-            <div style={styles.fileItem}>📄 CASO PRACTICO clubVid_2025.pdf</div>
-            <div style={styles.fileItem}>📄 caso5_contactCenter.pdf</div>
-            <div style={styles.fileItem}>📄 Diseño de DWH.pdf</div>
-          </div>
-        );
-      case "tareas":
-        return (
-          <div style={styles.content}>
-            <div style={styles.taskItem}>📝 Entregar wireframes iniciales</div>
-            <div style={styles.taskItem}>📝 Subir propuesta de diseño UI</div>
-            <div style={styles.taskItem}>📝 Revisión de requisitos</div>
-          </div>
-        );
-      default:
-        return null;
+        ))
+      );
+    default:
+      return null;
+
     }
   };
 
   return (
     
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.sidebar}>
-          <button style={styles.tabButton} onClick={() => setActiveTab("miembros")}>👥 Miembros</button>
-          <button style={styles.tabButton} onClick={() => setActiveTab("multimedia")}>🖼️ Multimedia</button>
-          <button style={styles.tabButton} onClick={() => setActiveTab("archivos")}>📁 Archivos</button>
-          <button style={styles.tabButton} onClick={() => setActiveTab("tareas")}>📌 Tareas</button>
+     <div style={styles.overlay} onClick={onClose}>
+    <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.sidebar}>
+        <button
+          style={{ 
+            ...styles.tabButton, 
+            backgroundColor: activeTab === "miembros" ? "#1ed760" : "transparent" 
+          }}
+          onClick={() => setActiveTab("miembros")}
+        >
+          👥 Miembros
+        </button>
+        <button
+          style={{ 
+            ...styles.tabButton, 
+            backgroundColor: activeTab === "multimedia" ? "#1ed760" : "transparent" 
+          }}
+          onClick={() => setActiveTab("multimedia")}
+        >
+          🖼️ Multimedia
+        </button>
+        <button
+          style={{ 
+            ...styles.tabButton, 
+            backgroundColor: activeTab === "archivos" ? "#1ed760" : "transparent" 
+          }}
+          onClick={() => setActiveTab("archivos")}
+        >
+          📁 Archivos
+        </button>
+        <button
+          style={{ 
+            ...styles.tabButton, 
+            backgroundColor: activeTab === "tareas" ? "#1ed760" : "transparent" 
+          }}
+          onClick={() => setActiveTab("tareas")}
+        >
+          📌 Tareas
+        </button>
+      </div>
+      <div style={styles.mainContent}>
+        <div style={styles.header}>
+          <h2 style={{ margin: 0 }}>
+            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+          </h2>
+          <button style={styles.closeButton} onClick={onClose}>✖</button>
         </div>
-        <div style={styles.mainContent}>
-          <div style={styles.header}>
-            <h2 style={{ margin: 0 }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
-            <button style={styles.closeButton} onClick={onClose}>✖</button>
-          </div>
+        <div style={{ overflowY: "auto", maxHeight: "calc(100% - 50px)" }}>
           {renderContent()}
         </div>
       </div>
     </div>
+  </div>
   );
 };
 
@@ -143,6 +326,28 @@ const styles = {
     backgroundColor: "#2a2a2a",
     borderRadius: "8px",
   },
+  mediaItem: {
+  width: "100px",
+  height: "100px",
+  borderRadius: "8px",
+  overflow: "hidden",
+  backgroundColor: "#2a2a2a",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  marginBottom: "10px",
+},
+fileItemLink: {
+  display: "block",
+  padding: "10px",
+  backgroundColor: "#2a2a2a",
+  borderRadius: "8px",
+  marginBottom: "10px",
+  color: "#1ed760",
+  fontWeight: "bold",
+  textDecoration: "none",
+  cursor: "pointer",
+},
   fileItem: {
     padding: "10px",
     backgroundColor: "#2a2a2a",
@@ -158,14 +363,7 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
     gap: "10px",
   },
-  mediaItem: {
-    backgroundColor: "#2a2a2a",
-    height: "100px",
-    borderRadius: "8px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+
   status: {
     fontSize: "0.85rem",
     marginLeft: "8px",

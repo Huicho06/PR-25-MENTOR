@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { db } from "/src/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import logo from "../assets/logo.png"; 
 
 const HomeScreen = () => {
   const navigate = useNavigate();
@@ -29,19 +30,25 @@ const HomeScreen = () => {
       }
     }
   };
-  return (
+   return (
     <div style={styles.wrapper}>
-      <div style={styles.container}>
-        {/* Imagen de fondo */}
-        <div style={styles.backgroundImage}></div>
+      {/* Logo fuera del container */}
+      <img src={logo} alt="Logo Mentor" style={styles.logoOutside} />
 
+      <div style={styles.container}>
         {/* Contenido */}
         <div style={styles.content}>
-          <h1 style={styles.title}>MENTOR</h1>
+          
+          <p style={styles.subtitle}>
+            Conecta, aprende y avanza en tu proyecto académico con tu tutor.
+          </p>
           <p style={styles.description}>
             Mentor es una aplicación diseñada para facilitar la comunicación entre
             tesistas y tutores, permitiendo la gestión de tutores, seguimiento de
             avances y la asignación de tareas dentro del ámbito académico.
+          </p>
+          <p style={styles.instruction}>
+            Comienza configurando tu perfil para acceder a todas las funcionalidades.
           </p>
           <button
             style={styles.button}
@@ -60,9 +67,16 @@ const styles = {
     backgroundColor: "#0a0a0a",
     minHeight: "100vh",
     display: "flex",
+    flexDirection: "column",
     justifyContent: "center",
+    alignItems: "center",  // Centra horizontalmente todo
     padding: 20,
     color: "#fff",
+  },
+  logoOutside: {
+    width: 680,  // Más grande
+    marginBottom: 40,
+    opacity: 0.9,
   },
   container: {
     width: "100%",
@@ -70,43 +84,47 @@ const styles = {
     textAlign: "center",
     position: "relative",
     padding: 20,
-  },
-  backgroundImage: {
-    backgroundImage: "url('./assets/ingChristianFrente.jpg')", // Cambié la ruta a la imagen correcta
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "60%",
-    borderRadius: "15px",
+    backgroundColor: "#121212",
+    borderRadius: 15,
+    boxShadow: "0 0 15px #1ed760a0",
   },
   content: {
-    position: "absolute",
-    bottom: "20px",
-    left: "0",
-    right: "0",
-    padding: "20px",
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    borderRadius: "15px",
+    padding: "10px 30px",
   },
   title: {
-    fontSize: "2rem",
+    fontSize: "3rem",
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 15,
+  },
+  subtitle: {
+    fontSize: "1.5rem",
+    color: "#1ed760",
+    marginBottom: 20,
+    fontWeight: "600",
   },
   description: {
-    fontSize: "1rem",
+    fontSize: "1.2rem",
     color: "#ccc",
-    marginBottom: 20,
+    marginBottom: 25,
+    lineHeight: 1.6,
+  },
+  instruction: {
+    fontSize: "1.2rem",
+    color: "#aaffaa",
+    marginBottom: 30,
+    fontWeight: "600",
   },
   button: {
     width: "100%",
-    padding: "15px",
+    padding: "18px",
     backgroundColor: "#1ed760",
     color: "#000",
     border: "none",
-    borderRadius: 10,
-    fontSize: "1rem",
+    borderRadius: 12,
+    fontSize: "1.2rem",
     fontWeight: "bold",
     cursor: "pointer",
+    transition: "background-color 0.3s",
   },
 };
 

@@ -4,11 +4,8 @@ import { FaEllipsisV, FaSignOutAlt } from "react-icons/fa";
 import Modal from "../components/GroupDetailsModal"; // Componente de navegación inferior
 import { useLocation } from "react-router-dom";
 import { db } from "/src/services/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { addDoc, serverTimestamp,doc, getDoc } from "firebase/firestore";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary";
-import { writeBatch } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import {
   FaSearch,
@@ -19,11 +16,29 @@ import {
   FaMicrophone,
   FaTrash,
 } from "react-icons/fa";
-
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
+import { saveAs } from "file-saver";
+import {
+  collection,
+  query,
+  orderBy,
+  where,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  writeBatch
+} from "firebase/firestore";
+import ImageModule from "docxtemplater-image-module-free";
 
 
 const GroupChatScreen = () => {
-  
+  const [solicitudData, setSolicitudData] = useState(null);
+
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const location = useLocation();
   const { chatId } = useParams();
@@ -43,13 +58,40 @@ const audioChunksRef = useRef([]);
   const auth = getAuth();
   const [user, setUser] = useState(auth.currentUser);
   const shouldSendAudioRef = useRef(false);
+const [firmaURL, setFirmaURL] = useState(null);
+const [firmaConUrl, setFirmaConUrl] = useState(null); // Este es nuevo
 
-  useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged((u) => {
+  const [isTeacher, setIsTeacher] = useState(false);
+const [progress, setProgress] = useState(0);
+const [showProgressModal, setShowProgressModal] = useState(false);
+const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+const [showProgressViewModal, setShowProgressViewModal] = useState(false);
+const [showDownloadModal, setShowDownloadModal] = useState(false);
+const [documentUrl, setDocumentUrl] = useState(null);
+useEffect(() => {
+  const unsubscribe = auth.onAuthStateChanged(async (u) => {
     setUser(u);
+    if (u) {
+      const userDocRef = doc(db, "usuarios", u.uid);
+      const userSnap = await getDoc(userDocRef);
+      if (userSnap.exists()) {
+        setIsTeacher(userSnap.data().tipo === "teacher");
+      }
+    }
   });
   return () => unsubscribe();
 }, []);
+
+useEffect(() => {
+  if (!chatId) return;
+  const progRef = doc(db, "chats", chatId, "meta", "progreso");
+  const unsubscribe = onSnapshot(progRef, (docSnap) => {
+    if (docSnap.exists()) {
+      setProgress(docSnap.data().value || 0);
+    }
+  });
+  return () => unsubscribe();
+}, [chatId]);
 
 useEffect(() => {
   if (!chatId || !user) return;
@@ -86,6 +128,31 @@ useEffect(() => {
 
   fetchChatName();
 }, [chatId, user]);
+const fetchDocumentUrl = async () => {
+  if (!chatId) return;
+  const docRef = doc(db, "chats", chatId, "meta", "documento");
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    setDocumentUrl(docSnap.data().url);
+  } else {
+    setDocumentUrl(null);
+  }
+};
+const handleOpenDownloadModal = async () => {
+  await fetchDocumentUrl();
+  setShowDownloadModal(true);
+};
+const saveProgress = async (newProgress) => {
+  if (!chatId) return;
+  const progRef = doc(db, "chats", chatId, "meta", "progreso");
+  try {
+    await setDoc(progRef, { value: newProgress });
+    setShowProgressModal(false);
+  } catch (error) {
+    console.error("Error guardando progreso:", error);
+    alert("Error guardando progreso");
+  }
+};
 
 const startRecording = () => {
   shouldSendAudioRef.current = true;
@@ -187,7 +254,6 @@ const startRecording = () => {
   setRecordingTime(0);
   audioChunksRef.current = [];
 };
-
 const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -210,8 +276,126 @@ const handleFileChange = async (e) => {
       uid: user.uid,
       nombre: nombre,
       timestamp: serverTimestamp(),
+    });
+  };
+
+const handleGenerateDocument = async () => {
+  try {
+    if (!user) {
+      alert("Usuario no autenticado");
+      return;
+    }
+
+    // 1. Buscar la solicitud aprobada del estudiante
+    const q = query(
+      collection(db, "solicitudes"),
+      where("estudiante_uid", "==", user.uid),
+      where("estado", "==", "aceptado")
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      alert("No se encontró solicitud aprobada para este estudiante.");
+      return;
+    }
+
+    const solicitudDoc = querySnapshot.docs[0];
+    const solicitudData = solicitudDoc.data();
+    const integrantes = solicitudData.proyecto_integrantes || [];
+
+    // 2. Obtener datos del tutor y su firma
+    const tutorUid = solicitudData.tutor_uid;
+    const tutorRef = doc(db, "usuarios", tutorUid);
+    const tutorSnap = await getDoc(tutorRef);
+
+    let nombreTutor = "Tutor";
+    let firmaURL = null;
+
+    if (tutorSnap.exists()) {
+      const tutorData = tutorSnap.data();
+      nombreTutor = tutorData.nombre || nombreTutor;
+      firmaURL = tutorData.firma || null;
+      setFirmaURL(firmaURL);
+    }
+
+    // 3. Formatear texto integrantes
+    let textoEstudiantes = "Estudiante";
+    if (integrantes.length === 1) {
+      textoEstudiantes = integrantes[0];
+    } else if (integrantes.length === 2) {
+      textoEstudiantes = `${integrantes[0]} y ${integrantes[1]}`;
+    } else if (integrantes.length > 2) {
+      const ultimos = integrantes.pop();
+      textoEstudiantes = `${integrantes.join(", ")} y ${ultimos}`;
+      integrantes.push(ultimos);
+    }
+    const palabraEstudiante = integrantes.length > 1 ? "los estudiantes" : "el estudiante";
+
+    // 4. Datos del proyecto
+    const tituloProyecto = solicitudData.proyecto_nombre || chatName || "Proyecto";
+
+    // 5. Carga plantilla .docx
+    const response = await fetch("/plantillas/carta_aprobacion.docx");
+    const content = await response.arrayBuffer();
+
+    // 6. Instancia módulo imagen para documento SIN firma
+    const imageModuleSinFirma = new ImageModule({
+      centered: false,
+      getImage: function(tagValue) {
+        const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
+        return Buffer.from(base64Data, "base64");
+      },
+      getSize: function() {
+        return [150, 50];
+      }
     });
-  };
+
+    const zipSinFirma = new PizZip(content);
+    const docSinFirma = new Docxtemplater(zipSinFirma, {
+      paragraphLoop: true,
+      linebreaks: true,
+      modules: [imageModuleSinFirma],
+    });
+
+    docSinFirma.render({
+      FECHA: new Date().toLocaleDateString(),
+      NOMBRE_DEL_ESTUDIANTE: textoEstudiantes,
+      TITULO_DEL_PROYECTO: tituloProyecto,
+      NOMBRE_DEL_TUTOR: nombreTutor,
+      ARTICULO_ESTUDIANTE: palabraEstudiante,
+      FIRMA: "", // Sin firma en este documento
+    });
+
+    const blobSinFirma = docSinFirma.getZip().generate({ type: "blob" });
+    const fileSinFirma = new File([blobSinFirma], `carta_sin_firma_${Date.now()}.docx`, {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    });
+    const { url: urlSinFirma } = await uploadToCloudinary(fileSinFirma);
+    await setDoc(doc(db, "chats", chatId, "meta", "documento_sin_firma"), { url: urlSinFirma });
+
+    // 7. Documento CON firma (si existe firmaURL)
+    if (firmaURL) {
+      // Nueva instancia para documento con firma
+      const imageModuleConFirma = new ImageModule({
+        centered: false,
+        getImage: function(tagValue) {
+          const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
+          return Buffer.from(base64Data, "base64");
+        },
+        getSize: function() {
+          return [150, 50];
+        }
+      });
+
+    }
+
+    alert("Documento(s) generado(s) y guardado(s) correctamente");
+  } catch (error) {
+    console.error("Error generando documento:", error);
+    alert("Error generando documento");
+  }
+};
+
 
   const photosInputRef = useRef(null);
   const docsInputRef = useRef(null);  
@@ -377,6 +561,14 @@ const handleFileChange = async (e) => {
     return <div style={styles.messageText}>{msg.texto}</div>;
   }
 };
+const filteredMessages = messages.filter(msg => {
+  const texto = msg.texto?.toLowerCase() || "";
+  const archivoNombre = msg.archivoNombre?.toLowerCase() || "";
+  const query = searchQuery.toLowerCase();
+
+  return texto.includes(query) || archivoNombre.includes(query);
+});
+
   useEffect(() => {
   if (!chatId || !user) return;
 
@@ -432,6 +624,35 @@ const handleFileChange = async (e) => {
 
   setMessage("");
 };
+<div
+  style={{
+    position: "fixed",
+    bottom: "60px",
+    width: "90%",
+    maxWidth: "600px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    backgroundColor: "#333",
+    borderRadius: "10px",
+    padding: "10px",
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+    zIndex: 1000,
+  }}
+>
+  Progreso del proyecto: {progress}%
+  <div
+    style={{
+      height: "8px",
+      backgroundColor: "#1ed760",
+      width: `${progress}%`,
+      borderRadius: "4px",
+      marginTop: "6px",
+      transition: "width 0.3s ease-in-out",
+    }}
+  />
+</div>
 
   const messagesEndRef = useRef(null);
   useEffect(() => {
@@ -439,14 +660,87 @@ const handleFileChange = async (e) => {
     messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }
 }, [messages]);
-  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
   return (
     
     <div style={styles.wrapper}>
-          {isGroupModalOpen && (
-      <Modal onClose={() => setIsGroupModalOpen(false)} />
-    )}
+      {showProgressViewModal && (
+  <div
+    style={{
+      position: "fixed",
+      top: "30%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "#1a1a1a",
+      padding: "20px",
+      borderRadius: "10px",
+      zIndex: 2000,
+      color: "#fff",
+      width: "300px",
+      textAlign: "center",
+    }}
+  >
+    <h3>Progreso del proyecto</h3>
+    <div
+      style={{
+        height: "20px",
+        backgroundColor: "#333",
+        borderRadius: "10px",
+        marginTop: "15px",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          backgroundColor: "#1ed760",
+          width: `${progress}%`,
+          borderRadius: "10px",
+          transition: "width 0.3s ease-in-out",
+        }}
+      />
+    </div>
+    <p style={{ marginTop: "10px", fontWeight: "bold" }}>{progress}%</p>
+    <button onClick={() => setShowProgressViewModal(false)}>Cerrar</button>
+  </div>
+)}
+
+      {showProgressModal && (
+  <div
+    style={{
+      position: "fixed",
+      top: "30%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "#1a1a1a",
+      padding: "20px",
+      borderRadius: "10px",
+      zIndex: 2000,
+      color: "#fff",
+    }}
+  >
+    <h3>Modificar progreso del proyecto</h3>
+    <input
+      type="range"
+      min={0}
+      max={100}
+      value={progress}
+      onChange={(e) => setProgress(Number(e.target.value))}
+      style={{ width: "100%" }}
+    />
+    <p>{progress}%</p>
+    <button onClick={() => saveProgress(progress)}>Guardar</button>
+    <button onClick={() => setShowProgressModal(false)}>Cerrar</button>
+  </div>
+)}
+
+{isGroupModalOpen && (
+  <Modal
+    onClose={() => setIsGroupModalOpen(false)}
+    chatId={chatId}
+    currentUserId={user?.uid}
+/>
+)}
       {/* Header fijo */}
       <div style={styles.topBar}>
         <div style={styles.header}>
@@ -456,8 +750,14 @@ const handleFileChange = async (e) => {
             ) : (
               <FaUser style={styles.icon} />
             )}
-            <span onClick={() => setIsGroupModalOpen(true)} style={{ cursor: "pointer" }}>
-              {chatName}
+<span
+              onClick={() => {
+                if (chatName.startsWith("Grupo:")) {
+                  setIsGroupModalOpen(true);
+                }
+              }}
+              style={{ cursor: "pointer" }}
+            >              {chatName}
             </span>
          </div>
           <div style={{ position: "relative" }}>
@@ -465,25 +765,99 @@ const handleFileChange = async (e) => {
     style={styles.moreIcon}
     onClick={() => setIsOptionsOpen(!isOptionsOpen)}
   />
-  {isOptionsOpen && (
-    <div style={styles.optionsModal}>
-<div
-  style={styles.optionItem1}
-  onClick={() => {
-    setIsSearchBarVisible(true);
-    setIsOptionsOpen(false); // Oculta el menú
-  }}
->
-  <FaSearch style={styles.optionIcon} />
-  <span>Buscar</span>
-</div>
 
-      <div style={styles.optionItem2}>
-        <FaSignOutAlt style={styles.optionIcon} />
-        <span>Salir del grupo</span>
-      </div>
+{showDownloadModal && (
+  <div style={modalStyles}>
+    <h3>Documento generado</h3>
+    {documentUrl && (
+      <a href={documentUrl} target="_blank" rel="noopener noreferrer" download>
+        <button>Descargar documento</button>
+      </a>
+    )}
+
+{firmaConUrl && (
+  <a href={firmaConUrl} target="_blank" rel="noopener noreferrer" download>
+    <button>Descargar documento con firma</button>
+  </a>
+)}
+    <button onClick={() => setShowDownloadModal(false)}>Cerrar</button>
+  </div>
+)}
+
+
+{/* Menú desplegable de opciones */}
+{isOptionsOpen && (
+  <div style={styles.optionsModal}>
+    <div
+      style={styles.optionItem}
+      onClick={() => {
+        setIsSearchBarVisible(true);
+        setIsOptionsOpen(false);
+      }}
+    >
+      <FaSearch style={styles.optionIcon} />
+      <span>Buscar</span>
     </div>
-  )}
+
+    {isTeacher ? (
+      <div
+        style={styles.optionItem}
+        onClick={() => {
+          setShowProgressModal(true);
+          setIsOptionsOpen(false);
+        }}
+      >
+        📊 Modificar barra de progreso
+      </div>
+    ) : (
+      <div
+        style={styles.optionItem}
+        onClick={() => {
+          setShowProgressViewModal(true);
+          setIsOptionsOpen(false);
+        }}
+      >
+        📊 Ver progreso
+      </div>
+    )}
+
+    {!isTeacher && progress === 100 && (
+      <div
+        style={styles.optionItem}
+        onClick={() => {
+          handleOpenDownloadModal();
+          setIsOptionsOpen(false);
+        }}
+      >
+        📄 Generar documento
+      </div>
+    )}
+
+  </div>
+)}
+
+{/* Modal de descarga documento */}
+{showDownloadModal && (
+  <div style={modalStyles}>
+    <h3>Documento generado</h3>
+
+    {documentUrl && (
+      <a href={documentUrl} target="_blank" rel="noopener noreferrer" download>
+        <button style={styles.downloadButton}>Descargar documento</button>
+      </a>
+    )}
+
+    {firmaConUrl && (
+      <a href={firmaConUrl} target="_blank" rel="noopener noreferrer" download>
+        <button style={styles.downloadButton}>Descargar documento con firma</button>
+      </a>
+    )}
+
+    <button style={styles.closeButton} onClick={() => setShowDownloadModal(false)}>Cerrar</button>
+  </div>
+)}
+
+
 </div>
 
         </div>
@@ -503,42 +877,39 @@ const handleFileChange = async (e) => {
 )}
 
 
+
       <div style={styles.messageList}>
-        {messages.map((msg, index) => {
-          
-          const isMe = msg.uid === getAuth().currentUser?.uid;
-          const tipo = msg.archivoTipo?.toLowerCase() || "";
-          const esAudio =
-            msg.archivoUrl &&
-            (tipo.includes("audio") || /\.(mp3|wav|ogg|webm)$/i.test(msg.archivoNombre));
+  {filteredMessages.map((msg, index) => {
+    const isMe = msg.uid === getAuth().currentUser?.uid;
+    const tipo = msg.archivoTipo?.toLowerCase() || "";
+    const esAudio =
+      msg.archivoUrl &&
+      (tipo.includes("audio") || /\.(mp3|wav|ogg|webm)$/i.test(msg.archivoNombre));
 
+    return (
+      <div
+        key={index}
+        style={{
+          ...styles.messageItem,
+          alignSelf: isMe ? "flex-end" : "flex-start",
+          backgroundColor: isMe ? "#1ed760" : "#1a1a1a",
+          color: isMe ? "#000" : "#fff",
+          padding: esAudio ? "2px 10px" : "10px 15px",
+          maxWidth: esAudio ? "300px" : "70%",
+        }}
+      >
+        {!isMe && <span style={styles.userName}>{msg.nombre || "Usuario"}</span>}
+        {renderMessageContent(msg, isMe)}
 
-          return (
-            <div key={index} style={{
-              ...styles.messageItem,
-              alignSelf: isMe ? "flex-end" : "flex-start",
-              backgroundColor: isMe ? "#1ed760" : "#1a1a1a",
-              color: isMe ? "#000" : "#fff",
-              padding: esAudio ? "2px 10px" : "10px 15px",  // menos padding vertical si es audio
-              maxWidth: esAudio ? "300px" : "70%",  
-            }}>
-              {!isMe && <span style={styles.userName}>{msg.nombre || "Usuario"}</span>}
-              
-              {renderMessageContent(msg, isMe)}
-
-
-
-              <div style={styles.timeAndStatus}>
-                <span style={styles.time}>
-                  {formatTimestamp(msg.timestamp)}
-                </span>
-                {isMe && <FaCheckDouble color="#4fc3f7" />}
-              </div>
-            </div>
-          );
-        })}
-        <div ref={messagesEndRef} /> 
+        <div style={styles.timeAndStatus}>
+          <span style={styles.time}>{formatTimestamp(msg.timestamp)}</span>
+          {isMe && <FaCheckDouble color="#4fc3f7" />}
+        </div>
       </div>
+    );
+  })}
+  <div ref={messagesEndRef} />
+</div>
 
             {/* Input o grabación */} 
             <div style={styles.messageInputContainer}>
@@ -636,7 +1007,19 @@ const handleFileChange = async (e) => {
     </div>
   );
 };
-
+const modalStyles = {
+  position: "fixed",
+  top: "30%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  backgroundColor: "#1a1a1a",
+  padding: "20px",
+  borderRadius: "10px",
+  zIndex: 2000,
+  color: "#fff",
+  width: "300px",
+  textAlign: "center",
+};
 const styles = {
   wrapper: {
     backgroundColor: "#0a0a0a",
@@ -691,30 +1074,61 @@ const styles = {
     width: "160px",
   },
   
-  optionItem1: {
-    display: "flex",
-    alignItems: "center",
-    padding: "10px",
-    cursor: "pointer",
-    borderBottom: "1px solid #444",
-    color: "#fff",
-    fontSize: "0.95rem",
-  },
-  optionItem2: {
-    display: "flex",
-    alignItems: "center",
-    padding: "10px",
-    cursor: "pointer",
-    borderBottom: "1px solid #444",
-    color: "#fff",
-    fontSize: "0.95rem",
-  },
-  
-  optionIcon: {
-    marginRight: "10px",
-    color: "#1ed760",
-  },
-  
+optionItem: {
+  display: "flex",
+  alignItems: "center",
+  padding: "10px 15px",
+  cursor: "pointer",
+  borderBottom: "1px solid #444",
+  color: "#fff",
+  fontSize: "0.95rem",
+  transition: "background-color 0.2s ease",
+},
+optionItemExit: {
+  display: "flex",
+  alignItems: "center",
+  padding: "10px 15px",
+  cursor: "pointer",
+  color: "#ff4d4d",
+  fontWeight: "bold",
+  fontSize: "0.95rem",
+  borderTop: "1px solid #444",
+  marginTop: "8px",
+},
+optionItemHover: {
+  backgroundColor: "#333",
+},
+optionIcon: {
+  marginRight: "10px",
+  color: "#1ed760",
+  minWidth: "18px",
+  textAlign: "center",
+},
+downloadButton: {
+  backgroundColor: "#1ed760",
+  color: "#000",
+  fontWeight: "bold",
+  border: "none",
+  borderRadius: "6px",
+  padding: "8px 16px",
+  cursor: "pointer",
+  margin: "8px 0",
+  width: "100%",
+  fontSize: "1rem",
+  transition: "background-color 0.3s ease",
+},
+closeButton: {
+  backgroundColor: "#444",
+  color: "#fff",
+  fontWeight: "bold",
+  border: "none",
+  borderRadius: "6px",
+  padding: "8px 16px",
+  cursor: "pointer",
+  marginTop: "10px",
+  width: "100%",
+  fontSize: "1rem",
+},
   attachIcon: {
     fontSize: "20px",
     color: "#fff",

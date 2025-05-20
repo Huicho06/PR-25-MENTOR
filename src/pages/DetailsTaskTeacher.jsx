@@ -9,9 +9,30 @@ const DetailsTaskTeacher = () => {
   const { taskId } = useParams(); // Obtener id de la ruta
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+    // Solo abre el modal, no elimina todavía
+  const handleDeleteClick = () => {
+    setShowConfirmModal(true);
+  };
 
+  // Cancelar elimina
+  const handleCancelDelete = () => {
+    setShowConfirmModal(false);
+  };
+  const handleDeleteConfirmed = async () => {
+    try {
+      const taskRef = doc(db, "tareas", taskId);
+      await deleteDoc(taskRef);
+      navigate("/TaskScreenTeacher");
+    } catch (error) {
+      console.error("Error eliminando la tarea:", error);
+    } finally {
+      setShowConfirmModal(false);
+    }
+  };
 useEffect(() => {
   if (!taskId) return;
+
 
   const fetchTask = async () => {
     try {
@@ -22,12 +43,10 @@ useEffect(() => {
         // Agregar el id explícitamente al objeto
         setTask({ id: taskSnap.id, ...taskSnap.data() });
       } else {
-        alert("La tarea no existe");
         navigate(-1);
       }
     } catch (error) {
       console.error("Error cargando la tarea:", error);
-      alert("Error al cargar la tarea");
       navigate(-1);
     } finally {
       setLoading(false);
@@ -43,7 +62,6 @@ const handleDelete = async () => {
     try {
       const taskRef = doc(db, "tareas", taskId);  // taskId lo obtienes igual que en useEffect
       await deleteDoc(taskRef);
-      alert("Tarea eliminada correctamente");
       navigate("/TaskScreenTeacher");
     } catch (error) {
       console.error("Error eliminando la tarea:", error);
@@ -55,7 +73,7 @@ const handleDelete = async () => {
 
   if (!task) return null;
 
-  return (
+ return (
     <div style={styles.wrapper}>
       <MainNavbar />
       <div style={styles.container}>
@@ -66,19 +84,59 @@ const handleDelete = async () => {
         <p><strong>Descripción:</strong> {task.descripcion || "Sin descripción"}</p>
 
         <div style={styles.buttonContainer}>
-          <button style={styles.editButton} onClick={() =>navigate(`/update-task-teacher/${task.id}`, { state: task })
-}
->
+          <button
+            style={styles.editButton}
+            onClick={() => navigate(`/update-task-teacher/${task.id}`, { state: task })}
+          >
             Editar Tarea
           </button>
-          <button style={styles.deleteButton} onClick={handleDelete}>
+          <button
+            style={styles.deleteButton}
+            onClick={handleDeleteClick}
+          >
             Eliminar Tarea
           </button>
         </div>
+
+        {/* Modal de confirmación */}
+        {showConfirmModal && (
+          <div style={modalOverlayStyles}>
+            <div style={modalStyles}>
+              <p>¿Estás seguro de eliminar esta tarea?</p>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "15px" }}>
+                <button style={styles.cancelButton} onClick={handleCancelDelete}>Cancelar</button>
+                <button style={styles.confirmButton} onClick={handleDeleteConfirmed}>Eliminar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
+
 };
+const modalOverlayStyles = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100vw",
+  height: "100vh",
+  backgroundColor: "rgba(0,0,0,0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 3000,
+};
+
+const modalStyles = {
+  backgroundColor: "#1a1a1a",
+  padding: "20px",
+  borderRadius: "10px",
+  color: "#fff",
+  maxWidth: "320px",
+  textAlign: "center",
+};
+
 
 const styles = {
   wrapper: {
@@ -125,6 +183,28 @@ const styles = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+  
+};
+styles.cancelButton = {
+  flex: 1,
+  marginRight: "10px",
+  padding: "10px",
+  borderRadius: "8px",
+  backgroundColor: "#777",
+  color: "#fff",
+  border: "none",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
+styles.confirmButton = {
+  flex: 1,
+  padding: "10px",
+  borderRadius: "8px",
+  backgroundColor: "#e53935",
+  color: "#fff",
+  border: "none",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
 export default DetailsTaskTeacher;

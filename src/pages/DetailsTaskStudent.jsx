@@ -69,12 +69,18 @@ const DetailsTaskStudent = () => {
         // Actualizar entrega existente
         const entregaRef = doc(db, "Entregas", entrega.id);
         await updateDoc(entregaRef, {
-          archivoNombre: name,
-          archivoUrl: url,
-          estado: "pendiente",
-          fechaEntregaReal: new Date(),
-        });
-        setEntrega(prev => ({ ...prev, archivoNombre: name, archivoUrl: url, estado: "pendiente", fechaEntregaReal: new Date() }));
+  archivoNombre: name,
+  archivoUrl: url,
+  // NO actualizar estado aquí
+  // NO actualizar fechaEntregaReal aquí, sólo al entregar
+});
+setEntrega(prev => ({
+  ...prev,
+  archivoNombre: name,
+  archivoUrl: url,
+  // NO cambiar estado ni fechaEntregaReal aquí
+}));
+
       } else {
         // Crear nueva entrega
         const docRef = await addDoc(collection(db, "Entregas"), {
@@ -88,29 +94,33 @@ const DetailsTaskStudent = () => {
         });
         setEntrega({ id: docRef.id, tareaId: taskId, estudianteUid: user.uid, archivoNombre: name, archivoUrl: url, estado: "pendiente", fechaEntregaReal: new Date(), fechaRevision: null });
       }
-      alert("Archivo adjuntado correctamente.");
     } catch (error) {
       console.error("Error al subir archivo:", error);
-      alert("Error al subir archivo, intenta de nuevo.");
     }
     setLoading(false);
   };
 
-  const handleDeliverToggle = async () => {
-    if (!entrega) return alert("Debes adjuntar un archivo primero.");
+const handleDeliverToggle = async () => {
+  if (!entrega) return alert("Debes adjuntar un archivo primero.");
 
-    const entregaRef = doc(db, "Entregas", entrega.id);
-    const nuevoEstado = entrega.estado === "entregado" ? "pendiente" : "entregado";
+  const entregaRef = doc(db, "Entregas", entrega.id);
+  const nuevoEstado = entrega.estado === "entregado" ? "pendiente" : "entregado";
 
-    try {
-      await updateDoc(entregaRef, { estado: nuevoEstado });
-      setEntrega(prev => ({ ...prev, estado: nuevoEstado }));
-      alert(`Estado cambiado a "${nuevoEstado}".`);
-    } catch (error) {
-      console.error("Error al actualizar estado:", error);
-      alert("Error al cambiar el estado.");
-    }
-  };
+  try {
+    await updateDoc(entregaRef, { 
+      estado: nuevoEstado,
+      fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
+    });
+    setEntrega(prev => ({ 
+      ...prev, 
+      estado: nuevoEstado,
+      fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
+    }));
+  } catch (error) {
+    console.error("Error al actualizar estado:", error);
+  }
+};
+
 
   if (!task) return <p>Cargando tarea...</p>;
 
@@ -139,18 +149,7 @@ const DetailsTaskStudent = () => {
         <p>{task.descripcion || "Sin descripción"}</p>
       </div>
 
-      <div style={styles.section}>
-        <p><strong>Materiales de referencia</strong></p>
-        <div style={styles.materialBox}>
-          {task.archivoNombre ? (
-            <a href={task.archivoUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#1ed760" }}>
-              {task.archivoNombre}
-            </a>
-          ) : (
-            <span>No hay archivos adjuntos</span>
-          )}
-        </div>
-      </div>
+
 
 <div style={styles.section}>
   <p><strong>Mi trabajo</strong></p>
@@ -167,7 +166,13 @@ const DetailsTaskStudent = () => {
       </a>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
         <span style={{ color: "#ccc", fontSize: "0.9rem" }}>
-          Entregado el {entrega.fechaEntregaReal?.toDate().toLocaleString() || "fecha desconocida"}
+Entregado el {
+  entrega.fechaEntregaReal
+    ? (typeof entrega.fechaEntregaReal.toDate === "function"
+        ? entrega.fechaEntregaReal.toDate().toLocaleString()
+        : new Date(entrega.fechaEntregaReal).toLocaleString())
+    : "fecha desconocida"
+}
         </span>
       </div>
     </>
@@ -175,11 +180,16 @@ const DetailsTaskStudent = () => {
     <p style={{ color: "#ccc", fontStyle: "italic" }}>No has adjuntado ningún archivo.</p>
   )}
 
-  <button
-    style={{ ...styles.attachButton, opacity: entrega && entrega.archivoUrl ? 0.6 : 1, cursor: entrega && entrega.archivoUrl ? "not-allowed" : "pointer" }}
-    onClick={() => fileInputRef.current.click()}
-    disabled={entrega && entrega.archivoUrl}
-  >
+<button
+  style={{
+    ...styles.attachButton,
+    opacity: entrega && entrega.estado === "entregado" ? 0.6 : 1,
+    cursor: entrega && entrega.estado === "entregado" ? "not-allowed" : "pointer",
+  }}
+  onClick={() => fileInputRef.current.click()}
+  disabled={entrega && entrega.estado === "entregado"}
+>
+
     <FaPaperclip style={{ marginRight: "8px" }} /> Adjuntar archivo
   </button>
   <input

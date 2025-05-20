@@ -58,24 +58,8 @@ const TaskScreenTeacher = () => {
   return (
     <div style={styles.wrapper}>
       <MainNavbar />
-      <NavbarT />
+      <NavbarT searchTerm={searchTerm} setSearchTerm={setSearchTerm}/>
 
-      <div style={{ marginBottom: 10 }}>
-        <input
-          type="text"
-          placeholder="Buscar tarea"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          style={{
-            width: "100%",
-            padding: "8px",
-            borderRadius: "8px",
-            border: "none",
-            backgroundColor: "#1a1a1a",
-            color: "#fff",
-          }}
-        />
-      </div>
 
       <div style={styles.taskList}>
         {tasks

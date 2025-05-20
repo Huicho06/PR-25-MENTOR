@@ -5,7 +5,8 @@ import { getAuth } from "firebase/auth";
 import { getDoc, doc, updateDoc } from "firebase/firestore"; 
 import logo from "../assets/logo.png"; 
 import BottomNavTeacher from "../components/BottomNavTeacher";
-
+import { uploadToCloudinary } from "../utils/uploadToCloudinary";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const UpdateProfileTeacher = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const UpdateProfileTeacher = () => {
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [specializations, setSpecializations] = useState([]); // Para las áreas de especialización
+const [signatureImage, setSignatureImage] = useState(null);
+const [signaturePreview, setSignaturePreview] = useState(null);
 
   // Función para cargar los datos del docente
   useEffect(() => {
@@ -32,6 +35,8 @@ const UpdateProfileTeacher = () => {
           setCareer(data.carrera || "");
           setPhoneNumber(data.telefono || "");
           setSpecializations(data.especializaciones || []); // Cargar especializaciones
+          setSignaturePreview(data.firma || null); // ← Mostrar firma previa si existe
+
         }
       };
       fetchUserData();
@@ -50,6 +55,7 @@ const UpdateProfileTeacher = () => {
       reader.readAsDataURL(file);
     }
   };
+  
 
   // Función para manejar las especializaciones seleccionadas
   const handleSpecializationsChange = (e) => {
@@ -63,15 +69,37 @@ const UpdateProfileTeacher = () => {
       setSpecializations(specializations.filter((specialization) => specialization !== value));
     }
   };
+  const handlePhoneChange = (e) => {
+    const valor = e.target.value;
+    const regex = /^[0-9]*$/; // Solo números
+
+    if (valor === "" || regex.test(valor)) {
+      setPhoneNumber(valor);
+    }
+    // Si no es número, no actualiza el estado, bloquea el input
+  };
 
   // Función para manejar los cambios de perfil
   const handleSubmit = async () => {
+    const regex = /^[0-9]*$/;
+    if (!regex.test(phoneNumber)) {
+      alert("El número de teléfono solo puede contener dígitos numéricos.");
+      return;
+    }
     try {
       const user = auth.currentUser;
       if (!user) {
         alert("No estás logueado.");
         return;
       }
+      let fotoPerfilURL = imagePreview; // Por defecto URL actual
+      
+          if (profileImage) {
+            // Si hay nueva imagen, subir y obtener URL
+            const { url } = await uploadToCloudinary(profileImage);
+            fotoPerfilURL = url;
+          }
+let firmaURL = signaturePreview; // Por defecto la actual
 
       // Actualizamos los datos del docente en Firestore
       const userRef = doc(db, "usuarios", user.uid);
@@ -79,9 +107,16 @@ const UpdateProfileTeacher = () => {
         nombre: name,
         carrera: career,
         telefono: phoneNumber,
-        fotoPerfil: profileImage ? profileImage.name : null, // Solo si se sube una nueva imagen
+        fotoPerfil: fotoPerfilURL, // Solo si se sube una nueva imagen
         especializaciones: specializations, // Actualizar especializaciones
+        firma: firmaURL,
+
       };
+
+if (signatureImage) {
+  const { url } = await uploadToCloudinary(signatureImage);
+  firmaURL = url;
+}
 
       await updateDoc(userRef, updatedData); // Actualiza los datos del usuario en Firestore
 
@@ -132,7 +167,7 @@ const UpdateProfileTeacher = () => {
           style={styles.input}
           placeholder="Número de teléfono"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChange={handlePhoneChange}
         />
 
         {/* Subir foto de perfil */}
@@ -196,7 +231,32 @@ const UpdateProfileTeacher = () => {
                 onChange={handleSpecializationsChange}
               />
               Seguridad Informática
+
             </label>
+            <input
+  type="file"
+  accept="image/*"
+  style={styles.fileInput}
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSignatureImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSignaturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }}
+/>
+
+{signaturePreview && (
+  <div>
+    <p style={{ marginBottom: "5px" }}>Vista previa de firma:</p>
+    <img src={signaturePreview} alt="Firma" style={styles.previewImage} />
+  </div>
+)}
+
           </div>
         </div>
 
@@ -225,13 +285,15 @@ const styles = {
     padding: 20,
     color: "#fff",
   },
-  container: {
-    width: "100%",
-    maxWidth: 400,
-    color: "#fff",
-    fontFamily: "sans-serif",
-    textAlign: "center",
-  },
+container: {
+  width: "100%",
+  maxWidth: 400,
+  color: "#fff",
+  fontFamily: "sans-serif",
+  textAlign: "center",
+  paddingBottom: 100, // ← Agrega esto para que no tape el bottom nav
+},
+
   logo: {
     width: 150,
     marginBottom: 30,

@@ -120,15 +120,22 @@ const crearChatsProyectoAceptado = async (proyecto) => {
       creado_en: serverTimestamp(),
       tipo: "tutor_estudiante"
     });
+  }
 
     // Chat con compañero si hay más de 1
-    if (!(await existeChatEntre(uid1, uid2))) {
-      await addDoc(collection(db, "chats"), {
-        nombre: "Chat con tu compañero",
-        participantes: [uid1, uid2],
-        tipo: "compañero",
-        creado_en: serverTimestamp(),
-      });
+    for (let i = 0; i < proyecto_integrantes_ids.length; i++) {
+    for (let j = i + 1; j < proyecto_integrantes_ids.length; j++) {
+      const uid1 = proyecto_integrantes_ids[i];
+      const uid2 = proyecto_integrantes_ids[j];
+
+      if (!(await existeChatEntre(uid1, uid2))) {
+        await addDoc(collection(db, "chats"), {
+          nombre: "Chat con tu compañero",
+          participantes: [uid1, uid2],
+          tipo: "compañero",
+          creado_en: serverTimestamp(),
+        });
+      }
     }
   }
 
@@ -337,7 +344,7 @@ for (const uid of integrantesIds) {
         <p>
           <strong>Archivo:</strong>
           <a
-            href={selectedMentor.archivo_url}
+            href={selectedMentor.archivo_url.url}
             target="_blank"
             rel="noopener noreferrer"
             style={styles.downloadButton}

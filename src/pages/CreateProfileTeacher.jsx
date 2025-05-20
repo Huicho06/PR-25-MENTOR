@@ -4,6 +4,8 @@ import { db } from "/src/services/firebase";  // Importar desde el archivo fireb
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";  // Para leer y escribir en Firestore
 import logo from "../assets/logo.png";  // Logo de la app
+import { uploadToCloudinary } from "../utils/uploadToCloudinary";
+
 
 const CreateProfileTeacher = () => {
   const navigate = useNavigate();
@@ -14,7 +16,8 @@ const CreateProfileTeacher = () => {
   const [specializations, setSpecializations] = useState([]);  // Áreas de especialización
   const [imagePreview, setImagePreview] = useState(null); // Vista previa de la imagen
   const [userData, setUserData] = useState(null);  // Para almacenar los datos del usuario
-
+  const [file, setFile] = useState(null);
+  const [photoURL, setPhotoURL] = useState(null);
   // Cargar los datos del usuario al iniciar la página
   useEffect(() => {
     const user = auth.currentUser;  // Obtener el usuario autenticado
@@ -48,6 +51,9 @@ const CreateProfileTeacher = () => {
   const handleSubmit = async () => {
     try {
       const user = auth.currentUser;  // Obtener el usuario logueado
+      if (!user) return;
+
+     
 
       // Actualizar los datos del perfil en Firestore
       const userRef = doc(db, "usuarios", user.uid);
@@ -57,6 +63,7 @@ const CreateProfileTeacher = () => {
         telefono: phoneNumber,
         especializaciones: specializations,  // Guardar especializaciones
         perfilCompletado: true,  // Cambiar a `true` cuando el perfil esté completado
+        fotoPerfil: photoURL,
       };
 
       await setDoc(userRef, updatedData, { merge: true });  // Merge para no sobrescribir los otros datos
@@ -105,8 +112,17 @@ const CreateProfileTeacher = () => {
           style={styles.input}
           placeholder="Número de teléfono"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}  // Asignar el valor del teléfono
+          onChange={(e) => {
+            const valor = e.target.value;
+            // Permitir solo dígitos
+            if (/^\d*$/.test(valor)) {
+              setPhoneNumber(valor);
+            }
+          }}
+          inputMode="numeric"
+          pattern="[0-9]*"
         />
+
 
         {/* Mostrar imagen de perfil */}
         <div style={styles.previewImageContainer}>
@@ -122,14 +138,21 @@ const CreateProfileTeacher = () => {
           type="file"
           accept="image/*"
           style={styles.fileInput}
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files[0];
             if (file) {
               const reader = new FileReader();
               reader.onloadend = () => {
                 setImagePreview(reader.result);
               };
-              reader.readAsDataURL(file);  // Mostrar la imagen seleccionada
+              reader.readAsDataURL(file);
+              try {
+                const { url } = await uploadToCloudinary(file);
+                setPhotoURL(url); // Solo la URL aquí también
+              } catch (error) {
+                console.error("Error subiendo la imagen:", error);
+                alert("No se pudo subir la imagen. Intenta nuevamente.");
+              }
             }
           }}
         /><br></br><br></br>

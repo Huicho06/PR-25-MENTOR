@@ -55,12 +55,10 @@ const CreateTaskTeacher = () => {
 
   const handleSave = async () => {
     if (!title.trim() || !dueDate || !group) {
-      alert("Por favor, completa todos los campos.");
       return;
     }
 
     if (!user) {
-      alert("Debes estar autenticado para crear una tarea.");
       return;
     }
 
@@ -75,11 +73,9 @@ const CreateTaskTeacher = () => {
         estado: "pendiente",
       });
 
-      alert("Tarea guardada correctamente");
       navigate("/TaskScreenTeacher");
     } catch (error) {
       console.error("Error al guardar la tarea:", error);
-      alert("Ocurrió un error al guardar la tarea.");
     }
   };
 

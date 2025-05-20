@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
 
-const NavbarStudent = () => {
+const NavbarStudent =  ({ searchTerm, setSearchTerm }) => {
   const [activeTab, setActiveTab] = useState("chat");
-  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
+  
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -45,11 +45,11 @@ const NavbarStudent = () => {
           Tareas
         </button>
       </div>
-
+      {/* Barra de búsqueda */}
       <div style={styles.searchContainer}>
         <input
           type="text"
-          placeholder="Search"
+          placeholder="Buscar..."
           value={searchTerm}
           onChange={handleSearchChange}
           style={styles.searchInput}

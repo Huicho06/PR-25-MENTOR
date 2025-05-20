@@ -24,28 +24,49 @@ const TaskScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+  if (!user) return;
 
-    const fetchTasks = async () => {
-      try {
-        // Supongamos que el campo que relaciona la tarea con el estudiante es 'creadoPor' o 'estudiante_uid'
-        const q = query(
-          collection(db, "tareas"),
-          where("creadoPor", "==", user.uid) // Ajusta aquí si usas otro campo
-        );
-        const snapshot = await getDocs(q);
-        const tareasData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setTasks(tareasData);
-      } catch (error) {
-        console.error("Error al cargar tareas:", error);
+  const fetchTasksForStudent = async () => {
+    try {
+      // 1. Obtener la solicitud aprobada donde estudiante_uid sea el id del usuario logueado
+      const qSolicitud = query(
+        collection(db, "solicitudes"),
+        where("estudiante_uid", "==", user.uid),
+        where("estado", "==", "aceptado")
+      );
+
+      const solicitudSnapshot = await getDocs(qSolicitud);
+      if (solicitudSnapshot.empty) {
+        setTasks([]); // No hay solicitud aprobada, limpiar tareas
+        return;
       }
-    };
 
-    fetchTasks();
-  }, [user]);
+const solicitudData = solicitudSnapshot.docs[0].data();
+const tutorUid = solicitudData.tutor_uid;
+const proyectoNombre = solicitudData.proyecto_nombre;
+
+
+      // 2. Buscar tareas donde creadoPor sea tutorUid
+      const qTareas = query(
+        collection(db, "tareas"),
+        where("creadoPor", "==", tutorUid),
+where("grupo", "==", proyectoNombre)
+      );
+
+      const tareasSnapshot = await getDocs(qTareas);
+      const tareasData = tareasSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setTasks(tareasData);
+    } catch (error) {
+      console.error("Error al cargar tareas:", error);
+    }
+  };
+
+  fetchTasksForStudent();
+}, [user]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -54,24 +75,9 @@ const TaskScreen = () => {
   return (
     <div style={styles.wrapper}>
       <Navbar />
-      <NavbarStudent />
+    <NavbarStudent searchTerm={searchTerm} setSearchTerm={setSearchTerm}/>
 
-      <input
-        type="text"
-        placeholder="Buscar tarea"
-        value={searchTerm}
-        onChange={handleSearchChange}
-        style={{
-          width: "100%",
-          padding: "8px",
-          borderRadius: "8px",
-          border: "none",
-          backgroundColor: "#1a1a1a",
-          color: "#fff",
-          marginTop: "10px",
-          marginBottom: "10px",
-        }}
-      />
+
 
       {/* Listado dinámico de tareas */}
       <div style={styles.taskList}>

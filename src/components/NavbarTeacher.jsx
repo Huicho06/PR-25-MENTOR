@@ -54,7 +54,7 @@ const Navbar = ({ searchTerm, setSearchTerm }) => {
       <div style={styles.searchContainer}>
         <input
           type="text"
-          placeholder="Search"
+          placeholder="Buscar..."
           value={searchTerm}
           onChange={handleSearchChange}
           style={styles.searchInput}

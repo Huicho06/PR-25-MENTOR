@@ -158,6 +158,8 @@ const styles = {
     backgroundColor: "#0a0a0a",
     minHeight: "100vh",
     display: "flex",
+        padding: 20,
+
     flexDirection: "column",
   },
   messageList: {
