@@ -479,12 +479,23 @@ const handleSelectStudent = (student) => {
         <div style={styles.resultContainer}>
           {filteredMentorsList.map((mentor, index) => (
             <div key={index} style={styles.mentorCard}>
-              <img src={personImage} alt={mentor.nombre} style={styles.mentorImage} />
+<img
+  src={mentor.fotoPerfil ? mentor.fotoPerfil : personImage}
+  alt={mentor.nombre}
+  style={styles.mentorImage}
+/>
               <div style={styles.mentorInfo}>
                 <h3 style={styles.mentorName}>{mentor.nombre}</h3>
                 <p style={styles.mentorSpecialization}>{mentor.especializaciones.join(', ')}</p>
               </div>
-              <button style={styles.requestButton} onClick={() => handleOpenModal(mentor.id)}>
+              <button
+  style={{ ...styles.requestButton1 ,backgroundColor: "#2196f3" , }}
+  onClick={() => handleViewProfile(mentor.id)}
+>
+  Ver Detalles
+</button>
+
+              <button style={styles.requestButton2} onClick={() => handleOpenModal(mentor.id)}>
                 Enviar Solicitud
               </button>
             </div>
@@ -790,7 +801,17 @@ const styles = {
     fontSize: "1rem",
     color: "#ccc",
   },
-  requestButton: {
+    requestButton1: {
+    backgroundColor: "#1ed760",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    padding: "8px 16px",
+    cursor: "pointer",
+    fontSize: "1rem",
+    marginRight: "20px"
+  },
+  requestButton2: {
     backgroundColor: "#1ed760",
     color: "#fff",
     border: "none",

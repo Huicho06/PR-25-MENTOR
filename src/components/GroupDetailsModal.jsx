@@ -3,6 +3,7 @@ import { db } from "../services/firebase";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useEffect } from "react";
 
+import { useNavigate } from "react-router-dom";
 
 
 
@@ -14,6 +15,7 @@ const [archivos, setArchivos] = React.useState([]);
 const [tareas, setTareas] = React.useState([]);
 
   
+const navigate = useNavigate();
 
 
   useEffect(() => {
@@ -69,7 +71,8 @@ let nombreProyecto = "";
 const solicitudesRef = collection(db, "solicitudes");
 const qSolicitud = query(
   solicitudesRef,
-  where("tutor_uid", "in", participantes)
+  where("estado", "==", "aceptado"),
+  where("estudiante_uid", "in", participantes)
 );
 
 const solicitudSnap = await getDocs(qSolicitud);
@@ -77,13 +80,28 @@ if (!solicitudSnap.empty) {
   nombreProyecto = solicitudSnap.docs[0].data().proyecto_nombre;
 }
 
-if (nombreProyecto) {
-  const tareasRef = collection(db, "tareas");
-  const qTareas = query(tareasRef, where("grupo", "==", nombreProyecto));
-  const tareasSnap = await getDocs(qTareas);
-  const tareasData = tareasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  setTareas(tareasData);
+if (!solicitudSnap.empty) {
+  const solicitudData = solicitudSnap.docs[0].data();
+  const nombreProyecto = solicitudData.proyecto_nombre;
+  const tutorUid = solicitudData.tutor_uid;
+
+  if (nombreProyecto && tutorUid) {
+    const tareasRef = collection(db, "tareas");
+    const qTareas = query(
+      tareasRef,
+      where("grupo", "==", nombreProyecto),
+      where("creadoPor", "==", tutorUid)
+    );
+
+    const tareasSnap = await getDocs(qTareas);
+    const tareasData = tareasSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setTareas(tareasData);
+  }
 }
+
 if (!solicitudSnap.empty) {
   nombreProyecto = solicitudSnap.docs[0].data().proyecto_nombre;
 }
@@ -181,11 +199,16 @@ case "archivos":
       return tareas.length === 0 ? (
         <p>No hay tareas asignadas.</p>
       ) : (
-        tareas.map((t) => (
-          <div key={t.id || t.titulo} style={styles.taskItem}>
-            📝 {t.titulo || t.descripcion || "Sin título"}
-          </div>
-        ))
+tareas.map((t) => (
+  <div
+    key={t.id || t.titulo}
+    style={styles.taskItem}
+    onClick={() => navigate(`/details-task-student/${t.id}`)}
+  >
+    📝 {t.titulo || t.descripcion || "Sin título"}
+  </div>
+))
+
       );
     default:
       return null;
@@ -325,6 +348,9 @@ const styles = {
     padding: "10px",
     backgroundColor: "#2a2a2a",
     borderRadius: "8px",
+      marginBottom: "15px",
+  cursor: "pointer",
+  transition: "background-color 0.2s",
   },
   mediaItem: {
   width: "100px",
@@ -352,16 +378,26 @@ fileItemLink: {
     padding: "10px",
     backgroundColor: "#2a2a2a",
     borderRadius: "8px",
+      marginBottom: "15px",
+  cursor: "pointer",
+  transition: "background-color 0.2s",
   },
-  taskItem: {
-    padding: "10px",
-    backgroundColor: "#2a2a2a",
-    borderRadius: "8px",
-  },
+taskItem: {
+  padding: "12px",
+  backgroundColor: "#2a2a2a",
+  borderRadius: "8px",
+  marginBottom: "15px",
+  cursor: "pointer",
+  transition: "background-color 0.2s",
+},
+
   gallery: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
     gap: "10px",
+      marginBottom: "15px",
+  cursor: "pointer",
+  transition: "background-color 0.2s",
   },
 
   status: {

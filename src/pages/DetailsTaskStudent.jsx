@@ -4,7 +4,7 @@ import { getAuth } from "firebase/auth";
 import { doc, getDoc, collection, query, where, addDoc, updateDoc, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { FaArrowLeft, FaPaperclip } from "react-icons/fa";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary"; // Ajusta la ruta si es necesario
+import { uploadToCloudinary } from "../utils/uploadToCloudinary";
 
 const DetailsTaskStudent = () => {
   const navigate = useNavigate();
@@ -64,35 +64,34 @@ const DetailsTaskStudent = () => {
     try {
       const { url, type, name } = await uploadToCloudinary(file);
 
-      // Crear o actualizar entrega en Firestore
       if (entrega) {
-        // Actualizar entrega existente
         const entregaRef = doc(db, "Entregas", entrega.id);
         await updateDoc(entregaRef, {
-  archivoNombre: name,
-  archivoUrl: url,
-  // NO actualizar estado aquí
-  // NO actualizar fechaEntregaReal aquí, sólo al entregar
-});
-setEntrega(prev => ({
-  ...prev,
-  archivoNombre: name,
-  archivoUrl: url,
-  // NO cambiar estado ni fechaEntregaReal aquí
-}));
-
-      } else {
-        // Crear nueva entrega
-        const docRef = await addDoc(collection(db, "Entregas"), {
-          tareaId: taskId,
-          estudianteUid: user.uid,
           archivoNombre: name,
           archivoUrl: url,
-          estado: "pendiente",
-          fechaEntregaReal: new Date(),
-          fechaRevision: null,
         });
-        setEntrega({ id: docRef.id, tareaId: taskId, estudianteUid: user.uid, archivoNombre: name, archivoUrl: url, estado: "pendiente", fechaEntregaReal: new Date(), fechaRevision: null });
+        setEntrega(prev => ({ ...prev, archivoNombre: name, archivoUrl: url }));
+      } else {
+const docRef = await addDoc(collection(db, "Entregas"), {
+  tareaId: taskId,
+  estudianteUid: user.uid,
+  archivoNombre: name,
+  archivoUrl: url,
+  estado: "entregado",
+  fechaEntregaReal: new Date(),
+  fechaRevision: null,
+});
+setEntrega({
+  id: docRef.id,
+  tareaId: taskId,
+  estudianteUid: user.uid,
+  archivoNombre: name,
+  archivoUrl: url,
+  estado: "entregado",
+  fechaEntregaReal: new Date(),
+  fechaRevision: null,
+});
+
       }
     } catch (error) {
       console.error("Error al subir archivo:", error);
@@ -100,107 +99,130 @@ setEntrega(prev => ({
     setLoading(false);
   };
 
-const handleDeliverToggle = async () => {
-  if (!entrega) return alert("Debes adjuntar un archivo primero.");
+  const handleDeliverToggle = async () => {
+    if (!entrega) return alert("Debes adjuntar un archivo primero.");
 
-  const entregaRef = doc(db, "Entregas", entrega.id);
-  const nuevoEstado = entrega.estado === "entregado" ? "pendiente" : "entregado";
+    const entregaRef = doc(db, "Entregas", entrega.id);
+    const nuevoEstado = entrega.estado === "entregado" ? "pendiente" : "entregado";
 
-  try {
-    await updateDoc(entregaRef, { 
-      estado: nuevoEstado,
-      fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
-    });
-    setEntrega(prev => ({ 
-      ...prev, 
-      estado: nuevoEstado,
-      fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
-    }));
-  } catch (error) {
-    console.error("Error al actualizar estado:", error);
-  }
-};
+    try {
+      await updateDoc(entregaRef, { 
+        estado: nuevoEstado,
+        fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
+      });
+      setEntrega(prev => ({ 
+        ...prev, 
+        estado: nuevoEstado,
+        fechaEntregaReal: nuevoEstado === "entregado" ? new Date() : null,
+      }));
+    } catch (error) {
+      console.error("Error al actualizar estado:", error);
+    }
+  };
 
-
-  if (!task) return <p>Cargando tarea...</p>;
+  if (!task) return <p style={{ color: "#fff", textAlign: "center" }}>Cargando tarea...</p>;
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.header}>
-        <button style={styles.backButton} onClick={() => navigate(-1)}>
-          <FaArrowLeft /> Volver
-        </button>
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <button style={styles.backButton} onClick={() => navigate(-1)}>
+            <FaArrowLeft /> Volver
+          </button>
 
-        {/* Botón Entregar / Cancelar entrega en la esquina superior derecha */}
-        <button
-          style={{ ...styles.deliverButton, backgroundColor: entrega?.estado === "entregado" ? "#e53935" : "#1ed760" }}
-          onClick={handleDeliverToggle}
-          disabled={loading}
-        >
-          {entrega?.estado === "entregado" ? "Cancelar entrega" : "Entregar tarea"}
-        </button>
-      </div>
-
-      <h2 style={styles.title}>{task.titulo}</h2>
-      <p style={styles.dueDate}>Vence el {task.fechaEntrega?.toDate().toLocaleString()}</p>
-
-      <div style={styles.section}>
-        <p><strong>Descripción</strong></p>
-        <p>{task.descripcion || "Sin descripción"}</p>
-      </div>
-
-
-
-<div style={styles.section}>
-  <p><strong>Mi trabajo</strong></p>
-
-  {entrega && entrega.archivoUrl ? (
-    <>
-      <a
-        href={entrega.archivoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "#1ed760", display: "inline-block", marginBottom: "10px", textDecoration: "underline" }}
-      >
-        {entrega.archivoNombre}
-      </a>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-        <span style={{ color: "#ccc", fontSize: "0.9rem" }}>
-Entregado el {
-  entrega.fechaEntregaReal
-    ? (typeof entrega.fechaEntregaReal.toDate === "function"
-        ? entrega.fechaEntregaReal.toDate().toLocaleString()
-        : new Date(entrega.fechaEntregaReal).toLocaleString())
-    : "fecha desconocida"
-}
-        </span>
-      </div>
-    </>
-  ) : (
-    <p style={{ color: "#ccc", fontStyle: "italic" }}>No has adjuntado ningún archivo.</p>
-  )}
-
-<button
-  style={{
-    ...styles.attachButton,
-    opacity: entrega && entrega.estado === "entregado" ? 0.6 : 1,
-    cursor: entrega && entrega.estado === "entregado" ? "not-allowed" : "pointer",
-  }}
-  onClick={() => fileInputRef.current.click()}
-  disabled={entrega && entrega.estado === "entregado"}
->
-
-    <FaPaperclip style={{ marginRight: "8px" }} /> Adjuntar archivo
+{entrega?.estado !== "revisada" && (
+  <button
+    style={{
+      ...styles.deliverButton,
+      backgroundColor: entrega?.estado === "entregado" ? "#e53935" : "#1ed760"
+    }}
+    onClick={handleDeliverToggle}
+    disabled={loading}
+  >
+    {entrega?.estado === "entregado" ? "Cancelar entrega" : "Entregar tarea"}
   </button>
-  <input
-    type="file"
-    ref={fileInputRef}
-    onChange={handleFileChange}
-    style={{ display: "none" }}
-    accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  />
-</div>
+)}
 
+
+        </div>
+
+        <h2 style={styles.title}>{task.titulo}</h2>
+        <p style={styles.dueDate}>Vence el {task.fechaEntrega?.toDate().toLocaleString()}</p>
+
+        <div style={styles.section}>
+          <p><strong>Descripción</strong></p>
+          <p>{task.descripcion || "Sin descripción"}</p>
+        </div>
+
+        <div style={styles.section}>
+          <p><strong>Mi trabajo</strong></p>
+
+          {entrega && entrega.archivoUrl ? (
+            <>
+              <a
+                href={entrega.archivoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#1ed760", display: "inline-block", marginBottom: "10px", textDecoration: "underline" }}
+              >
+                {entrega.archivoNombre}
+              </a>
+              {entrega.estado === "entregado" && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span style={{ color: "#ccc", fontSize: "0.9rem" }}>
+                    Entregado el {entrega.fechaEntregaReal ? new Date(entrega.fechaEntregaReal).toLocaleString() : "fecha desconocida"}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <p style={{ color: "#ccc", fontStyle: "italic" }}>No has adjuntado ningún archivo.</p>
+          )}
+{entrega?.estado !== "revisada" && (
+
+          <button
+            style={{
+              ...styles.attachButton,
+              opacity: entrega && entrega.estado === "entregado" ? 0.6 : 1,
+              cursor: entrega && entrega.estado === "entregado" ? "not-allowed" : "pointer"
+            }}
+            onClick={() => fileInputRef.current.click()}
+disabled={entrega && (entrega.estado === "entregado" || entrega.estado === "revisada")}
+          >
+            <FaPaperclip style={{ marginRight: "8px" }} /> Adjuntar archivo
+          </button>
+)}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+            accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          />
+        </div>
+{entrega?.estado === "revisada" && (
+  <div style={{ marginTop: "10px", marginBottom: "20px" }}>
+    <p style={{ color: "#ccc", fontSize: "0.9rem" }}>
+      {entrega.fechaRevision?.seconds
+        ? `Revisado el ${new Date(entrega.fechaRevision.seconds * 1000).toLocaleString()}`
+        : "Revisión completada (fecha no disponible)"}
+    </p>
+
+    <p style={{ marginTop: "10px" }}><strong>Comentario del docente</strong></p>
+    <p style={{ color: "#ccc" }}>{entrega.comentarioDocente || "Sin comentarios"}</p>
+
+    <p style={{ marginTop: "15px" }}><strong>Anotaciones:</strong></p>
+    <ul style={{ paddingLeft: "20px", color: "#bbb" }}>
+      {entrega.anotaciones?.length > 0 ? (
+        entrega.anotaciones.map((nota, idx) => <li key={idx}>{nota}</li>)
+      ) : (
+        <li>Sin anotaciones</li>
+      )}
+    </ul>
+  </div>
+)}
+
+      </div>
     </div>
   );
 };
@@ -209,29 +231,41 @@ const styles = {
   wrapper: {
     backgroundColor: "#0a0a0a",
     color: "#fff",
-    padding: "20px",
+    padding: "60px 80px 120px",
     minHeight: "100vh",
-    position: "relative"
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-start"
+  },
+  container: {
+    width: "100%",
+    maxWidth: "1400px",
+    backgroundColor: "#1a1a1a",
+    borderRadius: "10px",
+    padding: "40px 60px",
+    boxShadow: "0 0 12px rgba(0,0,0,0.4)"
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "20px",
+    marginBottom: "30px",
   },
   backButton: {
     backgroundColor: "transparent",
     color: "#1ed760",
-    border: "none",
-    fontSize: "1rem",
+    border: "1px solid #1ed760",
+    fontSize: "0.95rem",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
+    borderRadius: "6px",
+    padding: "6px 14px"
   },
   deliverButton: {
     border: "none",
-    padding: "10px 15px",
+    padding: "10px 16px",
     borderRadius: "8px",
     color: "#fff",
     fontWeight: "bold",
@@ -240,27 +274,21 @@ const styles = {
   title: {
     fontSize: "1.8rem",
     marginBottom: "5px",
-    color: "#fff",
+    textAlign: "center",
   },
   dueDate: {
     color: "#ccc",
-    marginBottom: "20px",
+    marginBottom: "25px",
+    textAlign: "center"
   },
   section: {
-    marginBottom: "25px",
-  },
-  materialBox: {
-    backgroundColor: "#1a1a1a",
-    padding: "12px",
-    borderRadius: "8px",
-    color: "#fff",
-    marginTop: "10px",
+    marginBottom: "40px",
   },
   attachButton: {
     backgroundColor: "#1ed760",
     border: "none",
     padding: "10px 20px",
-    color: "#fff",
+    color: "#000",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",

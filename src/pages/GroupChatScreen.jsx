@@ -96,35 +96,38 @@ useEffect(() => {
 useEffect(() => {
   if (!chatId || !user) return;
   const fetchChatName = async () => {
-    //if (!chatId) return;
-    const ref = doc(db, "chats", chatId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return;
+  if (!chatId || !user) return;
 
-    const chat = snap.data();
-    let nombrePersonalizado = chat.nombre;
+  const ref = doc(db, "chats", chatId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
 
-    if (chat.tipo === "personal") {
-      const userRef = doc(db, "usuarios", user.uid);
-      const userSnap = await getDoc(userRef);
-      const nombre = userSnap.exists() ? userSnap.data().nombre : "Tú";
-      nombrePersonalizado = `${nombre} (Tú)`;
-    } else if (chat.tipo === "compañero" || chat.tipo === "tutor_estudiante") {
-      const otroUID = chat.participantes.find(uid => uid !== user.uid);
-      const otroRef = doc(db, "usuarios", otroUID);
-      const otroSnap = await getDoc(otroRef);
-      if (otroSnap.exists()) {
-        const data = otroSnap.data();
-        nombrePersonalizado = data.nombre || "Usuario";
-        setChatImage(data.fotoURL || null); // ← Aquí seteas la imagen de perfil
-      }
-    } else if (chat.tipo === "grupo_proyecto") {
-      nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
-      setChatImage(null); // ← No mostramos imagen para grupo
+  const chat = snap.data();
+  let nombrePersonalizado = chat.nombre;
+
+  if (chat.tipo === "personal") {
+    const userRef = doc(db, "usuarios", user.uid);
+    const userSnap = await getDoc(userRef);
+    const nombre = userSnap.exists() ? userSnap.data().nombre : "Tú";
+    nombrePersonalizado = `${nombre} (Tú)`;
+  } else if (chat.tipo === "compañero" || chat.tipo === "tutor_estudiante") {
+    const otroUID = chat.participantes.find(uid => uid !== user.uid);
+    const otroRef = doc(db, "usuarios", otroUID);
+    const otroSnap = await getDoc(otroRef);
+    if (otroSnap.exists()) {
+      const data = otroSnap.data();
+      nombrePersonalizado = data.nombre || "Usuario";
+      setChatImage(data.fotoURL || null);
     }
+  } else if (chat.tipo === "grupo_proyecto") {
+    nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
+    setChatImage(null);
+  }
 
-    setChatName(nombrePersonalizado);
-  };
+  setChatName(nombrePersonalizado);
+};
+
+
 
   fetchChatName();
 }, [chatId, user]);
@@ -184,7 +187,6 @@ const startRecording = () => {
   const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
   
   if (audioBlob.size === 0) {
-    alert("Grabación vacía, no se enviará.");
     return;
   }
 
@@ -211,7 +213,6 @@ const startRecording = () => {
     });
   } catch (error) {
     console.error("Error enviando audio:", error);
-    alert("Error enviando audio.");
   }
 };
 
@@ -223,7 +224,6 @@ const startRecording = () => {
       }, 1000);
     })
     .catch(err => {
-      alert("No se pudo acceder al micrófono. Por favor revisa permisos.");
       console.error(err);
     });
 };
@@ -278,6 +278,16 @@ const handleFileChange = async (e) => {
       timestamp: serverTimestamp(),
     });
   };
+const getBase64FromUrl = async (url) => {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result); // <- esto será data:image/png;base64,...
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 const handleGenerateDocument = async () => {
   try {
@@ -298,7 +308,6 @@ const handleGenerateDocument = async () => {
       alert("No se encontró solicitud aprobada para este estudiante.");
       return;
     }
-
     const solicitudDoc = querySnapshot.docs[0];
     const solicitudData = solicitudDoc.data();
     const integrantes = solicitudData.proyecto_integrantes || [];
@@ -351,48 +360,81 @@ const handleGenerateDocument = async () => {
     });
 
     const zipSinFirma = new PizZip(content);
-    const docSinFirma = new Docxtemplater(zipSinFirma, {
-      paragraphLoop: true,
-      linebreaks: true,
-      modules: [imageModuleSinFirma],
-    });
+const docSinFirma = new Docxtemplater(zipSinFirma, {
+  paragraphLoop: true,
+  linebreaks: true,
+  modules: [imageModuleSinFirma],
+  delimiters: { start: "{", end: "}" }  // <-- AÑADIR ESTO
+});
+
 
     docSinFirma.render({
-      FECHA: new Date().toLocaleDateString(),
+FECHA: new Date().toLocaleString(),
       NOMBRE_DEL_ESTUDIANTE: textoEstudiantes,
       TITULO_DEL_PROYECTO: tituloProyecto,
       NOMBRE_DEL_TUTOR: nombreTutor,
       ARTICULO_ESTUDIANTE: palabraEstudiante,
       FIRMA: "", // Sin firma en este documento
     });
+const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
 
     const blobSinFirma = docSinFirma.getZip().generate({ type: "blob" });
-    const fileSinFirma = new File([blobSinFirma], `carta_sin_firma_${Date.now()}.docx`, {
+const fileSinFirma = new File([blobSinFirma], `carta_sin_firma_${timestamp}.docx`, {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     });
-    const { url: urlSinFirma } = await uploadToCloudinary(fileSinFirma);
-    await setDoc(doc(db, "chats", chatId, "meta", "documento_sin_firma"), { url: urlSinFirma });
 
-    // 7. Documento CON firma (si existe firmaURL)
-    if (firmaURL) {
-      // Nueva instancia para documento con firma
-      const imageModuleConFirma = new ImageModule({
-        centered: false,
-        getImage: function(tagValue) {
-          const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
-          return Buffer.from(base64Data, "base64");
-        },
-        getSize: function() {
-          return [150, 50];
-        }
-      });
+if (firmaURL) {
 
-    }
+  const imageModuleConFirma = new ImageModule({
+    centered: false,
+    getImage(tagValue) {
+      const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
+      return Buffer.from(base64Data, "base64");
+    },
+    getSize() {
+      return [150, 50];
+    },
+  });
 
-    alert("Documento(s) generado(s) y guardado(s) correctamente");
+  const zipConFirma = new PizZip(content);
+  const docConFirma = new Docxtemplater(zipConFirma, {
+    paragraphLoop: true,
+    linebreaks: true,
+    modules: [imageModuleConFirma],
+    delimiters: { start: "{", end: "}" }
+  });
+const base64Firma = await getBase64FromUrl(firmaURL);
+
+docConFirma.render({
+  FECHA: new Date().toLocaleDateString(),
+  NOMBRE_DEL_ESTUDIANTE: textoEstudiantes,
+  TITULO_DEL_PROYECTO: tituloProyecto,
+  NOMBRE_DEL_TUTOR: nombreTutor,
+  ARTICULO_ESTUDIANTE: palabraEstudiante,
+  FIRMA: base64Firma // <-- debe empezar con "data:image/png;base64,..."
+});
+
+
+  const blobConFirma = docConFirma.getZip().generate({ type: "blob" });
+  const fileConFirma = new File([blobConFirma], `carta_${timestamp}.docx`, {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+
+  const { url: urlConFirma } = await uploadToCloudinary(fileConFirma);
+  await setDoc(doc(db, "chats", chatId, "meta", "Documento de Aprobación"), {
+    url: urlConFirma,
+    nombre: `carta__${timestamp}.docx`,
+    generadoEn: new Date().toISOString(),
+  });
+
+  setFirmaConUrl(urlConFirma);
+}
+
+
+
+
   } catch (error) {
-    console.error("Error generando documento:", error);
-    alert("Error generando documento");
+
   }
 };
 
@@ -766,24 +808,6 @@ const filteredMessages = messages.filter(msg => {
     onClick={() => setIsOptionsOpen(!isOptionsOpen)}
   />
 
-{showDownloadModal && (
-  <div style={modalStyles}>
-    <h3>Documento generado</h3>
-    {documentUrl && (
-      <a href={documentUrl} target="_blank" rel="noopener noreferrer" download>
-        <button>Descargar documento</button>
-      </a>
-    )}
-
-{firmaConUrl && (
-  <a href={firmaConUrl} target="_blank" rel="noopener noreferrer" download>
-    <button>Descargar documento con firma</button>
-  </a>
-)}
-    <button onClick={() => setShowDownloadModal(false)}>Cerrar</button>
-  </div>
-)}
-
 
 {/* Menú desplegable de opciones */}
 {isOptionsOpen && (
@@ -824,10 +848,12 @@ const filteredMessages = messages.filter(msg => {
     {!isTeacher && progress === 100 && (
       <div
         style={styles.optionItem}
-        onClick={() => {
-          handleOpenDownloadModal();
-          setIsOptionsOpen(false);
-        }}
+onClick={async () => {
+  await handleGenerateDocument();  // <- generar el documento
+  handleOpenDownloadModal();       // <- mostrar el modal después
+  setIsOptionsOpen(false);
+}}
+
       >
         📄 Generar documento
       </div>
@@ -849,7 +875,7 @@ const filteredMessages = messages.filter(msg => {
 
     {firmaConUrl && (
       <a href={firmaConUrl} target="_blank" rel="noopener noreferrer" download>
-        <button style={styles.downloadButton}>Descargar documento con firma</button>
+        <button style={styles.downloadButton}>Descargar documento</button>
       </a>
     )}
 

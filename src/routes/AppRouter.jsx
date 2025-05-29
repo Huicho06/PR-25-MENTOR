@@ -32,7 +32,9 @@ import UpdateTaskTeacher from "../pages/UpdateTaskTeacher";
 import DetailsTaskStudent from "../pages/DetailsTaskStudent";
 import StudentHome from "../pages/StudentHome.jsx";
 import GroupChatScreen from "../pages/GroupChatScreen";
+import ReviewTask from "../pages/ReviewTask";
 
+import TeacherDetails from "../components/TeacherDetails";
 
 const AppRouter = () => {
   return (
@@ -70,6 +72,9 @@ const AppRouter = () => {
 <Route path="/details-task-student/:taskId" element={<DetailsTaskStudent />} />
         <Route path="/StudentHome" element={<StudentHome/>} />
         <Route path="/chat/:chatId" element={<GroupChatScreen/>} />
+        <Route path="/mentor/:mentorId" element={<TeacherDetails />} />
+<Route path="/review-task/:tareaId" element={<ReviewTask />} />
+
       </Routes>
     </BrowserRouter>
   );
