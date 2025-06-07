@@ -22,31 +22,46 @@ const Register = () => {
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
+      setError(""); // Limpiar errores al cambiar de rol
+
   };
 
 
   const handleSubmit = async () => {
-    if (form.password !== form.confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return;
-    }
+  const correo = form.email.trim().toLowerCase();
 
-    if (form.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
+  // Validar correo institucional según el rol
+  if (role === "student" && !correo.endsWith("@est.univalle.edu")) {
+    setError("Los tesistas deben usar un correo institucional que termine en @est.univalle.edu");
+    return;
+  }
 
-    try {
-      // Llamamos a la función de registro
-      await registrarUsuario(form.email, form.password, `${form.firstName} ${form.lastName}`, role, {
-        perfilCompletado: false, // El perfil aún no está completado
-      });
-      console.log("Usuario registrado correctamente");
-      navigate("/Login");  // Redirigir a la página principal (puedes ajustar esta ruta)
-    } catch (err) {
-      setError(err.message); 
-    }
-  };
+  if (role === "teacher" && !correo.endsWith("@univalle.edu")) {
+    setError("Los tutores deben usar un correo institucional que termine en @univalle.edu");
+    return;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    setError("Las contraseñas no coinciden");
+    return;
+  }
+
+  if (form.password.length < 6) {
+    setError("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+
+  try {
+    await registrarUsuario(form.email, form.password, `${form.firstName} ${form.lastName}`, role, {
+      perfilCompletado: false,
+    });
+    console.log("Usuario registrado correctamente");
+    navigate("/Login");
+  } catch (err) {
+    setError(err.message);
+  }
+};
+
 
 
 

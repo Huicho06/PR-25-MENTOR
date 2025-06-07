@@ -4,7 +4,7 @@ import { FaBell, FaUser } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import BottomNavLogout from "../components/SignOut"; // Ajusta la ruta según sea necesario
 import { db } from "../services/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const Navbar = () => {
@@ -35,6 +35,8 @@ const Navbar = () => {
   // Cerrar modal al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
+    if (e.target.closest(".notification-bell")) return;
+
       if (modalRef.current && !modalRef.current.contains(e.target)) {
         setIsNotificationModalOpen(false);
       }
@@ -52,6 +54,7 @@ const Navbar = () => {
   const [notifications, setNotifications] = useState([]);
 const [user, setUser] = useState(null);
 useEffect(() => {
+  
   const unsubscribe = onAuthStateChanged(getAuth(), (firebaseUser) => {
     if (firebaseUser) {
       setUser(firebaseUser);
@@ -60,65 +63,70 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 
-// Función para obtener solicitudes pendientes del usuario
-  const fetchSolicitudes = async () => {
-    if (!user) return;  // seguridad extra
-    try {
-      const q = query(
-        collection(db, "solicitudes"),
-        where("tutor_uid", "==", user.uid),
-        where("estado", "==", "pendiente")
-      );
-      const querySnapshot = await getDocs(q);
-      const fetchedNotifications = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        message: `Solicitud de mentoría de ${doc.data().proyecto_integrantes?.join(", ") ?? "Sin integrantes"} pendiente`,
-      }));
-      setNotifications(fetchedNotifications);
-    } catch (error) {
-      console.error("Error al cargar notificaciones:", error);
-    }
-  };
 
- // Ejecutar fetchSolicitudes solo cuando user cambia y NO es null
-  useEffect(() => {
-    if (user) {
-      fetchSolicitudes();
-    } else {
-      setNotifications([]);  // Limpiar notificaciones si no hay usuario
-    }
-  }, [user]);
+useEffect(() => {
+  if (isNotificationModalOpen) {
+    setHasNewNotifications(false);
+  }
+}, [isNotificationModalOpen]);
+
+// Función para obtener solicitudes pendientes del usuario
+useEffect(() => {
+  if (!user) return;
+
+  const q = query(
+    collection(db, "solicitudes"),
+    where("tutor_uid", "==", user.uid),
+    where("estado", "==", "pendiente")
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const fetchedNotifications = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      message: `Solicitud de mentoría de ${doc.data().proyecto_integrantes?.join(", ") ?? "Sin integrantes"} pendiente`,
+    }));
+    setNotifications(fetchedNotifications);
+  });
+
+  return () => unsubscribe();
+}, [user]);
+
+ 
 
   
 // Mostrar punto rojo si hay notificaciones y el modal NO está abierto
   useEffect(() => {
-    if (notifications.length > 0 && !isNotificationModalOpen) {
-      setHasNewNotifications(true);
-    } else {
-      setHasNewNotifications(false);
-    }
-  }, [notifications, isNotificationModalOpen]);
+  if (notifications.length > 0) {
+    setHasNewNotifications(true);
+  }
+}, [notifications]);
 
   // Toggle modal notificaciones y limpiar indicador
-  const toggleNotificationModal = () => {
-    setIsNotificationModalOpen((prev) => {
-      const nextState = !prev;
-      if (nextState) {
-        setHasNewNotifications(false);
-      }
-      return nextState;
-    });
-  };
-  fetchSolicitudes();
+ const toggleNotificationModal = () => {
+  setIsNotificationModalOpen((prev) => {
+    if (!prev) {
+      setHasNewNotifications(false); // Se borra al abrir
+    }
+    return !prev;
+  });
+};
+
+  
   return (
     <div style={styles.navBar}>
       <img src={logo} alt="Logo Mentor" style={styles.logo} />
       <div style={styles.rightNav}>
         <div style={{ position: "relative" }}>
-          <div style={{ position: "relative" }}>
-  <FaBell style={styles.bellIcon} onClick={toggleNotificationModal} />
-  {hasNewNotifications && <div style={styles.notificationDot}></div>}
-</div>
+          <div className="notification-bell" style={{ position: "relative" }}>
+            <FaBell
+              style={styles.bellIcon}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleNotificationModal();
+              }}
+            />
+            {hasNewNotifications && <div style={styles.notificationDot}></div>}
+          </div>
 
           {isNotificationModalOpen && (
             <div ref={modalRef} style={styles.notificationModal}>

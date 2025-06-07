@@ -20,7 +20,7 @@ const UpdateTaskTeacher = () => {
 
   const handleUpdate = async () => {
     if (!taskId) {
-      alert("No se encontró el ID de la tarea.");
+      console.error("No se encontró el ID de la tarea.",error);
       return;
     }
 
@@ -36,11 +36,10 @@ const UpdateTaskTeacher = () => {
         fechaEntrega: fechaEntregaDate,
       });
 
-      alert("Tarea actualizada");
       navigate(`/TaskScreenTeacher`);
     } catch (error) {
       console.error("Error actualizando la tarea:", error);
-      alert("Error al actualizar la tarea.");
+      console.error("Error al actualizar la tarea.",error);
     }
   };
 

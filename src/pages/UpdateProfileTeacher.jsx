@@ -233,7 +233,9 @@ if (signatureImage) {
               Seguridad Informática
 
             </label>
-            <input
+
+ {/*
+             <input
   type="file"
   accept="image/*"
   style={styles.fileInput}
@@ -249,14 +251,15 @@ if (signatureImage) {
     }
   }}
 />
-
 {signaturePreview && (
+ 
   <div>
     <p style={{ marginBottom: "5px" }}>Vista previa de firma:</p>
     <img src={signaturePreview} alt="Firma" style={styles.previewImage} />
   </div>
+  
 )}
-
+*/}
           </div>
         </div>
 

@@ -77,10 +77,11 @@ const docRef = await addDoc(collection(db, "Entregas"), {
   estudianteUid: user.uid,
   archivoNombre: name,
   archivoUrl: url,
-  estado: "entregado",
-  fechaEntregaReal: new Date(),
+  estado: "entregado",  // <-- NO marcar como entregado aún
+  fechaEntregaReal: null,
   fechaRevision: null,
 });
+
 setEntrega({
   id: docRef.id,
   tareaId: taskId,
@@ -159,14 +160,34 @@ setEntrega({
 
           {entrega && entrega.archivoUrl ? (
             <>
-              <a
-                href={entrega.archivoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#1ed760", display: "inline-block", marginBottom: "10px", textDecoration: "underline" }}
-              >
-                {entrega.archivoNombre}
-              </a>
+{(() => {
+  const url = entrega.archivoUrl;
+  const nombre = entrega.archivoNombre?.toLowerCase() || "";
+
+  // Detecta si es archivo de Word
+  const isWord = nombre.endsWith(".doc") || nombre.endsWith(".docx");
+
+  const viewerUrl = isWord
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}`
+    : url;
+
+  return (
+    <a
+      href={viewerUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        color: "#1ed760",
+        display: "inline-block",
+        marginBottom: "10px",
+        textDecoration: "underline"
+      }}
+    >
+      {entrega.archivoNombre}
+    </a>
+  );
+})()}
+
               {entrega.estado === "entregado" && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
                   <span style={{ color: "#ccc", fontSize: "0.9rem" }}>

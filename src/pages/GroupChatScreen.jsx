@@ -60,6 +60,7 @@ const audioChunksRef = useRef([]);
   const shouldSendAudioRef = useRef(false);
 const [firmaURL, setFirmaURL] = useState(null);
 const [firmaConUrl, setFirmaConUrl] = useState(null); // Este es nuevo
+const [chatType, setChatType] = useState(null);
 
   const [isTeacher, setIsTeacher] = useState(false);
 const [progress, setProgress] = useState(0);
@@ -103,6 +104,7 @@ useEffect(() => {
   if (!snap.exists()) return;
 
   const chat = snap.data();
+  setChatType(chat.tipo); // <- GUARDAR EL TIPO DEL CHAT
   let nombrePersonalizado = chat.nombre;
 
   if (chat.tipo === "personal") {
@@ -126,6 +128,7 @@ useEffect(() => {
 
   setChatName(nombrePersonalizado);
 };
+
 
 
 
@@ -291,150 +294,81 @@ const getBase64FromUrl = async (url) => {
 
 const handleGenerateDocument = async () => {
   try {
-    if (!user) {
-      alert("Usuario no autenticado");
-      return;
-    }
+    if (!user) return;
 
-    // 1. Buscar la solicitud aprobada del estudiante
     const q = query(
       collection(db, "solicitudes"),
-      where("estudiante_uid", "==", user.uid),
+      where("proyecto_integrantes_ids", "array-contains", user.uid),
       where("estado", "==", "aceptado")
     );
-
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
-      alert("No se encontró solicitud aprobada para este estudiante.");
+      alert("No se encontró solicitud aprobada.");
       return;
     }
-    const solicitudDoc = querySnapshot.docs[0];
-    const solicitudData = solicitudDoc.data();
+
+    const solicitudData = querySnapshot.docs[0].data();
     const integrantes = solicitudData.proyecto_integrantes || [];
 
-    // 2. Obtener datos del tutor y su firma
-    const tutorUid = solicitudData.tutor_uid;
-    const tutorRef = doc(db, "usuarios", tutorUid);
-    const tutorSnap = await getDoc(tutorRef);
-
-    let nombreTutor = "Tutor";
-    let firmaURL = null;
-
-    if (tutorSnap.exists()) {
-      const tutorData = tutorSnap.data();
-      nombreTutor = tutorData.nombre || nombreTutor;
-      firmaURL = tutorData.firma || null;
-      setFirmaURL(firmaURL);
-    }
-
-    // 3. Formatear texto integrantes
+    // Determinar nombres
     let textoEstudiantes = "Estudiante";
+    let palabraEstudiante = "el estudiante";
+
     if (integrantes.length === 1) {
       textoEstudiantes = integrantes[0];
     } else if (integrantes.length === 2) {
       textoEstudiantes = `${integrantes[0]} y ${integrantes[1]}`;
+      palabraEstudiante = "los estudiantes";
     } else if (integrantes.length > 2) {
-      const ultimos = integrantes.pop();
-      textoEstudiantes = `${integrantes.join(", ")} y ${ultimos}`;
-      integrantes.push(ultimos);
+      const ultimo = integrantes.pop();
+      textoEstudiantes = `${integrantes.join(", ")} y ${ultimo}`;
+      palabraEstudiante = "los estudiantes";
+      integrantes.push(ultimo); // Restaurar
     }
-    const palabraEstudiante = integrantes.length > 1 ? "los estudiantes" : "el estudiante";
 
-    // 4. Datos del proyecto
-    const tituloProyecto = solicitudData.proyecto_nombre || chatName || "Proyecto";
+    // Datos del tutor
+    const tutorSnap = await getDoc(doc(db, "usuarios", solicitudData.tutor_uid));
+    const nombreTutor = tutorSnap.exists() ? tutorSnap.data().nombre : "Tutor";
 
-    // 5. Carga plantilla .docx
+    const tituloProyecto = solicitudData.proyecto_nombre;
+
     const response = await fetch("/plantillas/carta_aprobacion.docx");
     const content = await response.arrayBuffer();
 
-    // 6. Instancia módulo imagen para documento SIN firma
-    const imageModuleSinFirma = new ImageModule({
-      centered: false,
-      getImage: function(tagValue) {
-        const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
-        return Buffer.from(base64Data, "base64");
-      },
-      getSize: function() {
-        return [150, 50];
-      }
+    const zip = new PizZip(content);
+    const docTemplate = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{", end: "}" },
     });
 
-    const zipSinFirma = new PizZip(content);
-const docSinFirma = new Docxtemplater(zipSinFirma, {
-  paragraphLoop: true,
-  linebreaks: true,
-  modules: [imageModuleSinFirma],
-  delimiters: { start: "{", end: "}" }  // <-- AÑADIR ESTO
-});
-
-
-    docSinFirma.render({
-FECHA: new Date().toLocaleString(),
+    docTemplate.render({
+      FECHA: new Date().toLocaleDateString(),
       NOMBRE_DEL_ESTUDIANTE: textoEstudiantes,
       TITULO_DEL_PROYECTO: tituloProyecto,
       NOMBRE_DEL_TUTOR: nombreTutor,
-      ARTICULO_ESTUDIANTE: palabraEstudiante,
-      FIRMA: "", // Sin firma en este documento
+      ARTICULO_ESTUDIANTE: palabraEstudiante
     });
-const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
 
-    const blobSinFirma = docSinFirma.getZip().generate({ type: "blob" });
-const fileSinFirma = new File([blobSinFirma], `carta_sin_firma_${timestamp}.docx`, {
+    const blob = docTemplate.getZip().generate({ type: "blob" });
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+    const file = new File([blob], `carta_${timestamp}.docx`, {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     });
 
-if (firmaURL) {
+    const { url } = await uploadToCloudinary(file);
+    await setDoc(doc(db, "chats", chatId, "meta", "documento"), {
+      url,
+      nombre: `carta_${timestamp}.docx`,
+      generadoEn: new Date().toISOString(),
+    });
 
-  const imageModuleConFirma = new ImageModule({
-    centered: false,
-    getImage(tagValue) {
-      const base64Data = tagValue.replace(/^data:image\/\w+;base64,/, "");
-      return Buffer.from(base64Data, "base64");
-    },
-    getSize() {
-      return [150, 50];
-    },
-  });
-
-  const zipConFirma = new PizZip(content);
-  const docConFirma = new Docxtemplater(zipConFirma, {
-    paragraphLoop: true,
-    linebreaks: true,
-    modules: [imageModuleConFirma],
-    delimiters: { start: "{", end: "}" }
-  });
-const base64Firma = await getBase64FromUrl(firmaURL);
-
-docConFirma.render({
-  FECHA: new Date().toLocaleDateString(),
-  NOMBRE_DEL_ESTUDIANTE: textoEstudiantes,
-  TITULO_DEL_PROYECTO: tituloProyecto,
-  NOMBRE_DEL_TUTOR: nombreTutor,
-  ARTICULO_ESTUDIANTE: palabraEstudiante,
-  FIRMA: base64Firma // <-- debe empezar con "data:image/png;base64,..."
-});
-
-
-  const blobConFirma = docConFirma.getZip().generate({ type: "blob" });
-  const fileConFirma = new File([blobConFirma], `carta_${timestamp}.docx`, {
-    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  });
-
-  const { url: urlConFirma } = await uploadToCloudinary(fileConFirma);
-  await setDoc(doc(db, "chats", chatId, "meta", "Documento de Aprobación"), {
-    url: urlConFirma,
-    nombre: `carta__${timestamp}.docx`,
-    generadoEn: new Date().toISOString(),
-  });
-
-  setFirmaConUrl(urlConFirma);
-}
-
-
-
+    setDocumentUrl(url);
+    setShowDownloadModal(true);
 
   } catch (error) {
-
+    console.error("Error generando documento:", error);
+    alert("Error al generar el documento.");
   }
 };
 
@@ -491,11 +425,10 @@ docConFirma.render({
             <img
               src={msg.archivoUrl}
               alt={msg.archivoNombre || "Imagen enviada"}
-              style={{ maxWidth: "200px", borderRadius: "10px", marginTop: "8px" }}
+              style={{ maxWidth: "350px", borderRadius: "10px", marginTop: "8px" }}
             />
           </a>
           <div style={{ fontSize: "0.85rem", color: isMe ? "#000" : "#ccc", marginTop: "4px" ,fontWeight: "bold"}}>
-            {msg.archivoNombre}
           </div>
         </>
       );
@@ -507,11 +440,10 @@ docConFirma.render({
             controls
             src={msg.archivoUrl}
             alt={msg.archivoNombre || "Video enviado"}
-            style={{ maxWidth: "200px", borderRadius: "10px", marginTop: "8px" }}
+            style={{ maxWidth: "500px", borderRadius: "10px", marginTop: "8px" }}
           />
           </a>
           <div style={{ fontSize: "0.85rem", color: isMe ? "#000" : "#ccc", marginTop: "4px",fontWeight: "bold" }}>
-            {msg.archivoNombre}
           </div>
         </>
       );
@@ -550,13 +482,13 @@ docConFirma.render({
               controls
               src={msg.archivoUrl}
               style={{
-                width: "100%",       // que ocupe todo el ancho posible de la burbuja
-                maxWidth: "280px",   // límite máximo más ancho que antes
+                width: "200px",       // que ocupe todo el ancho posible de la burbuja
+                maxWidth: "300px",   // límite máximo más ancho que antes
                 height: "24px",      // un poco menos alto para que se vea más compacto
                 marginTop: "8px",
                 marginBottom: "0",
                 verticalAlign: "middle",
-                borderRadius: "8px"
+                borderRadius: "8px",
               }}
             />
           </a>
@@ -566,12 +498,13 @@ docConFirma.render({
               color: isMe ? "#000" : "#ccc",
               marginTop: "1px",
               fontWeight: "bold",
-              maxWidth: "280px",
+              maxWidth: "300px",
               overflowWrap: "break-word",
               wordBreak: "break-word",
+              
             }}
           >
-            {msg.archivoNombre}
+            
           </div>
         </>
       );
@@ -666,35 +599,37 @@ const filteredMessages = messages.filter(msg => {
 
   setMessage("");
 };
-<div
-  style={{
-    position: "fixed",
-    bottom: "60px",
-    width: "90%",
-    maxWidth: "600px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    backgroundColor: "#333",
-    borderRadius: "10px",
-    padding: "10px",
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
-    zIndex: 1000,
-  }}
->
-  Progreso del proyecto: {progress}%
+{chatType === "grupo_proyecto" && (
   <div
     style={{
-      height: "8px",
-      backgroundColor: "#1ed760",
-      width: `${progress}%`,
-      borderRadius: "4px",
-      marginTop: "6px",
-      transition: "width 0.3s ease-in-out",
+      position: "fixed",
+      bottom: "60px",
+      width: "90%",
+      maxWidth: "600px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      backgroundColor: "#333",
+      borderRadius: "10px",
+      padding: "10px",
+      color: "#fff",
+      fontWeight: "bold",
+      textAlign: "center",
+      zIndex: 1000,
     }}
-  />
-</div>
+  >
+    Progreso del proyecto: {progress}%
+    <div
+      style={{
+        height: "8px",
+        backgroundColor: "#1ed760",
+        width: `${progress}%`,
+        borderRadius: "4px",
+        marginTop: "6px",
+        transition: "width 0.3s ease-in-out",
+      }}
+    />
+  </div>
+)}
 
   const messagesEndRef = useRef(null);
   useEffect(() => {
@@ -706,75 +641,84 @@ const filteredMessages = messages.filter(msg => {
   return (
     
     <div style={styles.wrapper}>
-      {showProgressViewModal && (
-  <div
-    style={{
-      position: "fixed",
-      top: "30%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      backgroundColor: "#1a1a1a",
-      padding: "20px",
-      borderRadius: "10px",
-      zIndex: 2000,
-      color: "#fff",
-      width: "300px",
-      textAlign: "center",
-    }}
-  >
-    <h3>Progreso del proyecto</h3>
-    <div
-      style={{
-        height: "20px",
-        backgroundColor: "#333",
-        borderRadius: "10px",
-        marginTop: "15px",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          height: "100%",
-          backgroundColor: "#1ed760",
-          width: `${progress}%`,
-          borderRadius: "10px",
-          transition: "width 0.3s ease-in-out",
-        }}
-      />
-    </div>
-    <p style={{ marginTop: "10px", fontWeight: "bold" }}>{progress}%</p>
-    <button onClick={() => setShowProgressViewModal(false)}>Cerrar</button>
-  </div>
-)}
+
 
       {showProgressModal && (
   <div
     style={{
       position: "fixed",
-      top: "30%",
+      top: "50%",
       left: "50%",
       transform: "translate(-50%, -50%)",
-      backgroundColor: "#1a1a1a",
-      padding: "20px",
-      borderRadius: "10px",
+      backgroundColor: "#1f1f1f",
+      padding: "30px",
+      borderRadius: "15px",
       zIndex: 2000,
       color: "#fff",
+      width: "90%",
+      maxWidth: "400px",
+      boxShadow: "0 0 25px rgba(0, 0, 0, 0.6)",
+      textAlign: "center",
     }}
   >
-    <h3>Modificar progreso del proyecto</h3>
+    <h2 style={{ marginBottom: "15px", color: "#1ed760" }}>
+      Modificar progreso del proyecto
+    </h2>
+
     <input
       type="range"
       min={0}
       max={100}
       value={progress}
       onChange={(e) => setProgress(Number(e.target.value))}
-      style={{ width: "100%" }}
+      style={{
+        width: "100%",
+        accentColor: "#1ed760",
+        margin: "10px 0",
+      }}
     />
-    <p>{progress}%</p>
-    <button onClick={() => saveProgress(progress)}>Guardar</button>
-    <button onClick={() => setShowProgressModal(false)}>Cerrar</button>
+
+    <p style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#1ed760" }}>
+      {progress}%
+    </p>
+
+    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px", gap: "10px" }}>
+      <button
+        onClick={() => saveProgress(progress)}
+        style={{
+          flex: 1,
+          backgroundColor: "#1ed760",
+          color: "#000",
+          fontWeight: "bold",
+          border: "none",
+          borderRadius: "8px",
+          padding: "10px 0",
+          cursor: "pointer",
+          transition: "background-color 0.3s ease"
+        }}
+      >
+        Guardar
+      </button>
+
+      <button
+        onClick={() => setShowProgressModal(false)}
+        style={{
+          flex: 1,
+          backgroundColor: "#333",
+          color: "#fff",
+          border: "1px solid #555",
+          borderRadius: "8px",
+          padding: "10px 0",
+          cursor: "pointer",
+          transition: "background-color 0.3s ease"
+        }}
+      >
+        Cancelar
+      </button>
+    </div>
   </div>
 )}
+
 
 {isGroupModalOpen && (
   <Modal
@@ -786,29 +730,42 @@ const filteredMessages = messages.filter(msg => {
       {/* Header fijo */}
       <div style={styles.topBar}>
         <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            {chatImage ? (
-              <img src={chatImage} alt="avatar" style={styles.chatAvatar} />
-            ) : (
-              <FaUser style={styles.icon} />
-            )}
-<span
-              onClick={() => {
-                if (chatName.startsWith("Grupo:")) {
-                  setIsGroupModalOpen(true);
-                }
-              }}
-              style={{ cursor: "pointer" }}
-            >              {chatName}
-            </span>
-         </div>
-          <div style={{ position: "relative" }}>
-  <FaEllipsisV
-    style={styles.moreIcon}
-    onClick={() => setIsOptionsOpen(!isOptionsOpen)}
-  />
+            {/* LADO IZQUIERDO */}
+  <div style={styles.headerLeft}>
+    {chatImage ? (
+      <img src={chatImage} alt="avatar" style={styles.chatAvatar} />
+    ) : (
+      <FaUser style={styles.icon} />
+    )}
+    <span
+      onClick={() => {
+        if (chatName.startsWith("Grupo:")) {
+          setIsGroupModalOpen(true);
+        }
+      }}
+      style={{ cursor: "pointer" }}
+    >
+      {chatName}
+    </span>
+  </div>
 
+{chatType === "grupo_proyecto" && progress >= 0 && (
+  <div style={styles.progressContainer}>
+    <div style={styles.progressBarBg}>
+      <div style={{ ...styles.progressBarFill, width: `${progress}%` }} />
+    </div>
+    <span style={styles.progressText}>
+      Progreso del proyecto: {progress}%
+    </span>
+  </div>
+)}
 
+  {/* LADO DERECHO */}
+  <div style={{ position: "relative" }}>
+    <FaEllipsisV
+      style={styles.moreIcon}
+      onClick={() => setIsOptionsOpen(!isOptionsOpen)}
+    />
 {/* Menú desplegable de opciones */}
 {isOptionsOpen && (
   <div style={styles.optionsModal}>
@@ -823,27 +780,18 @@ const filteredMessages = messages.filter(msg => {
       <span>Buscar</span>
     </div>
 
-    {isTeacher ? (
-      <div
-        style={styles.optionItem}
-        onClick={() => {
-          setShowProgressModal(true);
-          setIsOptionsOpen(false);
-        }}
-      >
-        📊 Modificar barra de progreso
-      </div>
-    ) : (
-      <div
-        style={styles.optionItem}
-        onClick={() => {
-          setShowProgressViewModal(true);
-          setIsOptionsOpen(false);
-        }}
-      >
-        📊 Ver progreso
-      </div>
-    )}
+{isTeacher && (
+  <div
+    style={styles.optionItem}
+    onClick={() => {
+      setShowProgressModal(true);
+      setIsOptionsOpen(false);
+    }}
+  >
+    📊 Modificar barra de progreso
+  </div>
+)}
+
 
     {!isTeacher && progress === 100 && (
       <div
@@ -929,7 +877,7 @@ onClick={async () => {
 
         <div style={styles.timeAndStatus}>
           <span style={styles.time}>{formatTimestamp(msg.timestamp)}</span>
-          {isMe && <FaCheckDouble color="#4fc3f7" />}
+          {/*isMe && <FaCheckDouble color="#4fc3f7" />*/}
         </div>
       </div>
     );
@@ -1247,6 +1195,7 @@ closeButton: {
     justifyContent: "flex-end",
     alignItems: "center",
     marginTop: "5px",
+    color: "white",
     gap: "5px",
   },
   messageInputContainer: {
@@ -1307,6 +1256,35 @@ closeButton: {
     animation: "pulse 1s infinite",
     marginRight: "auto",
   },
+  progressContainer: {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  flex: 1,
+},
+
+progressBarBg: {
+  width: "160px",
+  height: "10px",
+  backgroundColor: "#444",
+  borderRadius: "8px",
+  overflow: "hidden",
+},
+
+progressBarFill: {
+  height: "100%",
+  backgroundColor: "#1ed760",
+  transition: "width 0.3s ease-in-out",
+},
+
+progressText: {
+  fontSize: "0.85rem",
+  fontWeight: "bold",
+  color: "white",
+  marginTop: "4px",
+  textAlign: "center"
+},
+
 };
 
 export default GroupChatScreen;

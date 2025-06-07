@@ -13,6 +13,7 @@ import BottomNav from "../components/BottomNav"; // Componente de navegación in
 import { getDoc,doc,updateDoc } from "firebase/firestore"; // Importar doc
 import { uploadToCloudinary } from "../utils/uploadToCloudinary"; // ajusta la ruta según dónde lo creaste
 
+import { FaPlus } from "react-icons/fa";
 
 const MainScreen = () => {
   const navigate = useNavigate();
@@ -607,7 +608,7 @@ const handleSelectStudent = (student) => {
   </div>
 )}
 <button onClick={handleProjectButtonClick} style={styles.projectFabButton}>
-  📁
+        <FaPlus size={18} />
 </button>
 
 {/* Modal para agregar proyecto */}
@@ -785,10 +786,11 @@ const styles = {
     marginBottom: "20px",
   },
   mentorImage: {
-    width: "60px",
+   width: "60px",
     height: "60px",
     borderRadius: "50%",
-    marginRight: "15px",
+    objectFit: "cover",
+    marginRight: "15px"
   },
   mentorInfo: {
     flex: 1,
@@ -831,14 +833,19 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
   },
+
   modal: {
-    backgroundColor: "#2a2a2a",
-    padding: "20px",
-    borderRadius: "10px",
-    width: "80%",
-    maxWidth: "400px",
+    backgroundColor: "#1e1e1e",
+    padding: "25px",
+    borderRadius: "16px",
+    width: "90%",
+    maxWidth: "480px",
     color: "#fff",
-    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.8)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    animation: "fadeIn 0.3s ease",
   },
   notificationModal: {
     backgroundColor: "#2a2a2a",
@@ -875,46 +882,53 @@ const styles = {
   modalContent: {
     display: "flex",
     flexDirection: "column",
+    gap: "15px",
   },
   textarea: {
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "15px",
+    padding: "12px",
+    borderRadius: "10px",
     fontSize: "1rem",
     resize: "none",
-    border: "1px solid #ccc",
-    backgroundColor: "#333",
+    border: "1px solid #555",
+    backgroundColor: "#2a2a2a",
     color: "#fff",
+    transition: "border-color 0.3s ease",
+    height: "120px",
   },
   fileInput: {
-    padding: "10px",
-    marginBottom: "15px",
-    borderRadius: "8px",
-    backgroundColor: "#333",
-    border: "1px solid #ccc",
+    padding: "12px",
+    borderRadius: "10px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #555",
     color: "#fff",
+    cursor: "pointer",
   },
   modalButtons: {
     display: "flex",
     justifyContent: "space-between",
+    marginTop: "10px",
   },
   modalButton1: {
-    padding: "10px 20px",
-    borderRadius: "5px",
+    padding: "12px 24px",
+    borderRadius: "8px",
     cursor: "pointer",
     backgroundColor: "#1ed760",
-    color: "#fff",
+    color: "#000",
     border: "none",
-    marginRight: "10px",
+    fontWeight: "bold",
+    transition: "background-color 0.3s ease",
   },
   modalButton2: {
-    padding: "10px 20px",
-    borderRadius: "5px",
+    padding: "12px 24px",
+    borderRadius: "8px",
     cursor: "pointer",
     backgroundColor: "#f44336",
     color: "#fff",
     border: "none",
+    fontWeight: "bold",
+    transition: "background-color 0.3s ease",
   },
+
   projectFabButton: {
     position: "fixed",
     bottom: "100px",
@@ -934,15 +948,15 @@ const styles = {
     zIndex: 999,
   },
   modalInput: {
-    padding: "10px",
-    marginBottom: "20px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    backgroundColor: "#333",
+    padding: "12px",
+    borderRadius: "10px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #555",
     color: "#fff",
+    fontSize: "1rem",
     width: "100%",
-  }
-  
+    transition: "border-color 0.3s ease",
+  },
 };
 
 export default MainScreen;

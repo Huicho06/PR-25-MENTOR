@@ -122,7 +122,9 @@ const tareasConEstado = tareas.map(t => {
 
       <div style={styles.taskList}>
         {filteredTasks.map((task) => (
-          <div key={task.id} style={styles.taskItem}>
+          <div key={task.id} style={styles.taskItem}   onClick={() => navigate(`/details-task-teacher/${task.id}`)}
+>
+            
             <div style={styles.taskInfo}>
               <h3 style={styles.taskTitle}>{task.titulo}</h3>
               <p style={styles.taskDetails}><strong>Asignado a:</strong> {task.grupo}</p>

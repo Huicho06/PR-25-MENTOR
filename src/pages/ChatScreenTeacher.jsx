@@ -12,10 +12,15 @@ import { doc, getDoc } from "firebase/firestore";
 
 const getUserInfoByUID = async (uid) => {
   const docSnap = await getDoc(doc(db, "usuarios", uid));
-  if (docSnap.exists()) return docSnap.data();
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      nombre: data.nombre || "Usuario",
+      foto: data.fotoPerfil || null, // <-- cambio aquí
+    };
+  }
   return { nombre: "Usuario", foto: null };
 };
-
 const ChatScreenTeacher = () => {
   const [allChats, setAllChats] = useState([]);       // TODOS los chats
   const [visibleChats, setVisibleChats] = useState([]); // Chats que se muestran
@@ -38,34 +43,44 @@ const ChatScreenTeacher = () => {
       const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       const personalizedChats = await Promise.all(chatList.map(async (chat) => {
-        let nombrePersonalizado = chat.nombre;
-        let fotoPerfil = null;
+  let nombrePersonalizado = chat.nombre;
+  let fotoPerfil = null;
+  let fotosGrupo = null; // ✅ declarar siempre, para evitar undefined
 
-        if (chat.tipo === "personal" || chat.tipo === "tutor_estudiante") {
-          const otroUID = chat.participantes.find(uid => uid !== user.uid);
-          const otro = await getUserInfoByUID(otroUID);
-          nombrePersonalizado = otro.nombre || "Usuario";
-          fotoPerfil = otro.foto || null;
-        } else if (chat.tipo === "grupo_proyecto") {
-          nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
-          fotoPerfil = null;
-        }
-        const mensajesRef = collection(db, "chats", chat.id, "mensajes");
-        const qNoLeidos = query(
-          mensajesRef,
-          where("visto", "==", false),
-          where("uid", "!=", user.uid)
-        );
-        const snapshotNoLeidos = await getDocs(qNoLeidos);
-        const noLeidosCount = snapshotNoLeidos.size;
+  const user = getAuth().currentUser;
 
-        return { 
-          ...chat, 
-          nombreMostrado: nombrePersonalizado, 
-          foto: fotoPerfil,
-          noLeidosCount
-        };      
-      }));
+  if (chat.tipo === "personal" || chat.tipo === "tutor_estudiante") {
+    const otroUID = chat.participantes.find(uid => uid !== user.uid);
+    const otro = await getUserInfoByUID(otroUID);
+    nombrePersonalizado = otro.nombre || "Usuario";
+    fotoPerfil = otro.foto || null;
+  } else if (chat.tipo === "grupo_proyecto") {
+    nombrePersonalizado = `Grupo: ${chat.nombre.split(":")[1]?.trim() || chat.nombre}`;
+    fotoPerfil = null;
+
+    const miembrosUIDs = chat.participantes; // ✅ ya no filtrar
+    const miembrosInfo = await Promise.all(miembrosUIDs.map(uid => getUserInfoByUID(uid)));
+    fotosGrupo = miembrosInfo.map(info => info.foto).filter(Boolean).slice(0, 4); // 👈 carga hasta 4 fotos
+  }
+
+  const mensajesRef = collection(db, "chats", chat.id, "mensajes");
+  const qNoLeidos = query(
+    mensajesRef,
+    where("visto", "==", false),
+    where("uid", "!=", user.uid)
+  );
+  const snapshotNoLeidos = await getDocs(qNoLeidos);
+  const noLeidosCount = snapshotNoLeidos.size;
+
+  return {
+    ...chat,
+    nombreMostrado: nombrePersonalizado,
+    foto: fotoPerfil,
+    fotosGrupo,             // ✅ ahora siempre existe
+    noLeidosCount
+  };
+}));
+
       setAllChats(personalizedChats);
 
       // Inicialmente mostrar solo chats grupales
@@ -131,13 +146,38 @@ useEffect(() => {
               onClick={() => handleChatClick(chat)}
             >
               <div style={styles.userInfo}>
-                {chat.foto ? (
-                  <img src={chat.foto} alt="avatar" style={styles.userIcon} />
-                ) : (
-                  <div style={styles.userIconPlaceholder}>
-                    {chat.nombreMostrado.charAt(0)}
-                  </div>
-                )}
+{chat.tipo === "grupo_proyecto" && chat.fotosGrupo?.length > 0 ? (
+  <div style={styles.groupCollageWrapper}>
+    {chat.fotosGrupo.slice(0, 3).map((foto, idx) => (
+      <img
+        key={idx}
+        src={foto}
+        alt={`miembro ${idx}`}
+        style={{
+          ...styles.groupImage,
+          left: `${idx * 15}px`,
+          top: idx === 1 ? "10px" : "0px",
+          zIndex: 3 - idx,
+        }}
+      />
+    ))}
+  </div>
+) : chat.foto ? (
+  <img src={chat.foto} alt="avatar" style={styles.userImage} />
+) : (
+  <div style={{
+    ...styles.userImage,
+    backgroundColor: "#555",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "bold",
+    fontSize: "1rem",
+  }}>
+    {chat.nombreMostrado.charAt(0)}
+  </div>
+)}
                 <div>
                   <h3 style={styles.userName}>{chat.nombreMostrado}</h3>
                 </div>
@@ -199,7 +239,7 @@ const styles = {
     width: "40px",
     height: "40px",
     borderRadius: "50%",
-    objectFit: "cover",
+    objectFit: "cover", // Asegura que la imagen sea circular
   },
   userIconPlaceholder: {
     width: "40px",
@@ -215,6 +255,27 @@ const styles = {
   userName: {
     fontSize: "1.2rem",
     fontWeight: "bold",
+  },
+  userImage: {
+    width: 50,
+    height: 50,
+    borderRadius: "50%",
+    objectFit: "cover",
+    marginRight: 10,
+  },
+    groupCollageWrapper: {
+    position: "relative",
+    width: 50,
+    height: 50,
+    marginRight: 10,
+  },
+  groupImage: {
+    width: 28,
+    height: 28,
+    borderRadius: "50%",
+    position: "absolute",
+    objectFit: "cover",
+    border: "2px solid #1a1a1a",
   },
 };
 

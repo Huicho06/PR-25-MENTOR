@@ -233,6 +233,24 @@ const styles = {
     padding: 20,
     color: "#fff",
   },
+    previewImageContainer: {
+    width: "100%",
+    height: "200px",
+    border: "2px dashed #1ed760",
+    borderRadius: "12px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    backgroundColor: "#1a1a1a",
+  },
+  previewImage: {
+    maxHeight: "100%",
+    maxWidth: "100%",
+    objectFit: "cover",
+    borderRadius: "8px",
+  },
+
   container: {
     width: "100%",
     maxWidth: 400,

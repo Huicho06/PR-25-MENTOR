@@ -20,7 +20,7 @@ import {
 import personImage from "../assets/person.png"; 
 import BottomNavLogout from "../components/SignOut";
 import { onAuthStateChanged } from "firebase/auth";
-
+import { onSnapshot } from "firebase/firestore";
 const MainScreenTeacher = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -34,41 +34,36 @@ const MainScreenTeacher = () => {
     return () => unsubscribe();
   }, []);
   
-  useEffect(() => {
+useEffect(() => {
     if (!user) return;
   
-    const fetchSolicitudes = async () => {
-      try {
-        const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-        const q = query(
-          collection(db, "solicitudes"),
-          where("tutor_uid", "==", user.uid),
-          where("estado", "==", "pendiente")
-        );
-  
-        const querySnapshot = await getDocs(q);
-        const fetchedRequests = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-  
-        setRequests(fetchedRequests);
-  
-        // Crear notificaciones dinámicas
-        const notificacionesGeneradas = fetchedRequests.map((solicitud) => ({
-          id: solicitud.id,
-          message: `Solicitud de mentoría de ${solicitud.proyecto_integrantes?.join(", ")} pendiente`,
-        }));
-  
-        setNotifications(notificacionesGeneradas);
-      } catch (error) {
-        console.error("Error al obtener solicitudes:", error);
-      }
-    };
-  
-    fetchSolicitudes();
+    const auth = getAuth();
+const userActual = auth.currentUser;
+if (!userActual) return;
+
+const q = query(
+  collection(db, "solicitudes"),
+  where("tutor_uid", "==", userActual.uid),
+  where("estado", "==", "pendiente")
+);
+
+const unsubscribe = onSnapshot(q, (querySnapshot) => {
+  const fetchedRequests = querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  setRequests(fetchedRequests);
+
+  const notificacionesGeneradas = fetchedRequests.map((solicitud) => ({
+    id: solicitud.id,
+    message: `Solicitud de mentoría de ${solicitud.proyecto_integrantes?.join(", ") ?? "Sin integrantes"} pendiente`,
+  }));
+
+  setNotifications(notificacionesGeneradas);
+});
+
+return () => unsubscribe();
   }, [user]);
   useEffect(() => {
   window.scrollToRequest = (id) => {
@@ -292,11 +287,7 @@ for (const uid of integrantesIds) {
           <div style={styles.mentorList}>
           {requests.map((solicitud, index) => (
           <div key={index} id={`solicitud-${solicitud.id}`} style={styles.mentorCard}>
-            <img
-              src={personImage}
-              alt={solicitud.proyecto_nombre}
-              style={styles.mentorImage}
-            />
+
             <div style={styles.mentorInfo}>
               <h3 style={styles.mentorName}>{solicitud.proyecto_nombre}</h3>
               <p style={styles.mentorSpecialization}>
@@ -343,14 +334,15 @@ for (const uid of integrantesIds) {
       {selectedMentor.archivo_url && (
         <p>
           <strong>Archivo:</strong>
-          <a
-            href={selectedMentor.archivo_url.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.downloadButton}
-          >
-            Ver archivo
-          </a>
+<a
+  href={`https://docs.google.com/gview?url=${selectedMentor.archivo_url.url}&embedded=true`}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={styles.downloadButton}
+>
+  Ver archivo
+</a>
+
         </p>
       )}
 
@@ -573,38 +565,51 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
   },
-  modal: {
-    backgroundColor: "#2a2a2a",
-    padding: "20px",
-    borderRadius: "10px",
-    width: "80%",
-    maxWidth: "400px",
-    color: "#fff",
-    boxShadow: "0px 0px 15px rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    flexDirection: "column",
-  },
-  modalButtons: {
-    marginTop: "20px",
-    display: "flex",
-    justifyContent: "space-between",
-  },
-  modalButton1: {
-    padding: "10px 20px",
-    borderRadius: "5px",
-    cursor: "pointer",
-    backgroundColor: "#1ed760",
-    color: "#fff",
-    border: "none",
-  },
-  modalButton2: {
-    padding: "10px 20px",
-    borderRadius: "5px",
-    cursor: "pointer",
-    backgroundColor: "#f44336",
-    color: "#fff",
-    border: "none",
-  },
+ modal: {
+  backgroundColor: "#1f1f1f",
+  padding: "30px",
+  borderRadius: "16px",
+  width: "90%",
+  maxWidth: "450px",
+  color: "#fff",
+  boxShadow: "0px 0px 25px rgba(0, 0, 0, 0.7)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+},
+
+modalButtons: {
+  marginTop: "25px",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "15px",
+  width: "100%",
+},
+
+modalButton1: {
+  flex: 1,
+  padding: "12px 0",
+  borderRadius: "8px",
+  cursor: "pointer",
+  backgroundColor: "#1ed760",
+  color: "#000",
+  border: "none",
+  fontWeight: "bold",
+  transition: "background-color 0.3s ease",
+},
+
+modalButton2: {
+  flex: 1,
+  padding: "12px 0",
+  borderRadius: "8px",
+  cursor: "pointer",
+  backgroundColor: "#e53935",
+  color: "#fff",
+  border: "none",
+  fontWeight: "bold",
+  transition: "background-color 0.3s ease",
+},
+
   downloadButton: {
     backgroundColor: "#ff9800", // Naranja para el botón de descarga
     color: "#fff",
@@ -616,20 +621,33 @@ const styles = {
     marginLeft: "15px",
     cursor: "pointer",
   },
-  message: {
-    marginTop: "20px",
-    marginBottom: "20px",
-  },
-  textarea: {
-    padding: "15px",
-    borderRadius: "8px",
-    marginTop: "15px",
-    fontSize: "1rem",
-    resize: "none",
-    border: "1px solid #ccc",
-    backgroundColor: "#333",
-    color: "#fff",
-  },
+
+message: {
+  marginTop: "15px",
+  marginBottom: "20px",
+  fontSize: "1rem",
+  color: "#ccc",
+  lineHeight: "1.5",
+  backgroundColor: "#2a2a2a",
+  padding: "15px",
+  borderRadius: "10px",
+  width: "100%",
+},
+textarea: {
+  padding: "15px",
+  borderRadius: "10px",
+  marginTop: "15px",
+  fontSize: "1rem",
+  resize: "none",
+  border: "1px solid #444",
+  backgroundColor: "#2c2c2c",
+  color: "#fff",
+  minHeight: "120px",
+  width: "100%",
+  boxShadow: "inset 0 0 5px rgba(0,0,0,0.5)",
+  transition: "border 0.3s ease",
+},
+
 };
 
 export default MainScreenTeacher;

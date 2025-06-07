@@ -11,7 +11,7 @@ import {
   where,
   getDocs,
   updateDoc,
-  doc,orderBy, limit
+  doc,orderBy, limit, onSnapshot
 } from "firebase/firestore";
 
 const Navbar = () => {
@@ -27,32 +27,46 @@ const Navbar = () => {
   const modalRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(getAuth(), (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        fetchNotifications(firebaseUser.uid);
-      }
-    });
+  let unsubscribeNotificaciones = null;
 
-    return () => unsubscribe();
-  }, []);
+  const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
+    if (firebaseUser) {
+      setUser(firebaseUser);
+      unsubscribeNotificaciones = fetchNotifications(firebaseUser.uid);
+    }
+  });
 
-  const fetchNotifications = async (uid) => {
+  return () => {
+    unsubscribeAuth(); // limpia listener de auth
+    if (unsubscribeNotificaciones) {
+      unsubscribeNotificaciones(); // limpia listener de notificaciones
+    }
+  };
+}, []);
+
+  
+  const fetchNotifications = (uid) => {
   const q = query(
     collection(db, "notificaciones"),
     where("uid", "==", uid),
     orderBy("timestamp", "desc"),
     limit(10)
   );
-  const snapshot = await getDocs(q);
-  const notis = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
 
-  setNotificaciones(notis);
-  setHasNewNotifications(notis.some(n => !n.leido));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const notis = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setNotificaciones(notis);
+    setHasNewNotifications(notis.some(n => !n.leido));
+  });
+
+  return unsubscribe; // esto es importante para limpiar el listener
 };
+
+
+
 const tiempoDesde = (timestamp) => {
   if (!timestamp?.toDate) return "";
   const date = timestamp.toDate();

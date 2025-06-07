@@ -28,28 +28,36 @@ const TaskScreen = () => {
 
     const fetchTasksForStudent = async () => {
       try {
-        const qSolicitud = query(
-          collection(db, "solicitudes"),
-          where("estudiante_uid", "==", user.uid),
-          where("estado", "==", "aceptado")
-        );
+const qSolicitud = query(
+  collection(db, "solicitudes"),
+  where("proyecto_integrantes_ids", "array-contains", user.uid),
+  where("estado", "==", "aceptado")
+);
 
-        const solicitudSnapshot = await getDocs(qSolicitud);
+const solicitudSnapshot = await getDocs(qSolicitud);
+console.log("Solicitudes aceptadas:", solicitudSnapshot.docs.length);
+
+
         if (solicitudSnapshot.empty) {
           setTasks([]);
           return;
         }
 
-        const solicitudData = solicitudSnapshot.docs[0].data();
-        const tutorUid = solicitudData.tutor_uid;
-        const proyectoNombre = solicitudData.proyecto_nombre;
+const solicitudData = solicitudSnapshot.docs[0].data();
+const tutorUid = solicitudData.tutor_uid;
+const proyectoNombre = solicitudData.proyecto_nombre;
 
-        const qTareas = query(
-          collection(db, "tareas"),
-          where("creadoPor", "==", tutorUid),
-          where("grupo", "==", proyectoNombre)
-        );
-        const tareasSnapshot = await getDocs(qTareas);
+console.log("Tutor UID:", tutorUid);
+console.log("Nombre del proyecto:", proyectoNombre);
+
+const qTareas = query(
+  collection(db, "tareas"),
+  where("creadoPor", "==", tutorUid),
+  where("grupo", "==", proyectoNombre)
+);
+const tareasSnapshot = await getDocs(qTareas);
+console.log("Tareas encontradas:", tareasSnapshot.docs.length);
+
         const tareas = tareasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const entregasSnapshot = await getDocs(query(
@@ -64,7 +72,8 @@ const TaskScreen = () => {
           let estado = "pendiente";
           if (entrega?.estado === "revisada") estado = "revisada";
           else if (entrega?.estado === "entregado") estado = "entregada";
-
+console.log("Proyecto:", proyectoNombre);
+console.log("Tutor UID:", tutorUid);
           return {
             ...t,
             estado,

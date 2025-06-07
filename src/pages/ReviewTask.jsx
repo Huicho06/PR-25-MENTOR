@@ -36,22 +36,20 @@ const ReviewTask = () => {
     fetchEntrega();
   }, [tareaId]);
 
-const handleSave = async () => {
-  try {
-    await updateDoc(doc(db, "Entregas", entrega.id), {
-      comentarioDocente: comentario,
-      anotaciones: anotaciones.filter(a => a.trim() !== ""),
-      estado: "revisada", // ✔ Cambia el estado
-      fechaRevision: new Date() // ✔ Registra la fecha
-    });
-    alert("Revisión guardada");
-    navigate(-1);
-  } catch (error) {
-    console.error("Error al guardar revisión:", error);
-    alert("Error al guardar revisión");
-  }
-};
-
+  const handleSave = async () => {
+    try {
+      await updateDoc(doc(db, "Entregas", entrega.id), {
+        comentarioDocente: comentario,
+        anotaciones: anotaciones.filter(a => a.trim() !== ""),
+        estado: "revisada",
+        fechaRevision: new Date()
+      });
+      navigate(-1);
+    } catch (error) {
+      console.error("Error al guardar revisión:", error);
+      alert("❌ Error al guardar revisión");
+    }
+  };
 
   const handleChangeAnotacion = (index, value) => {
     const nuevas = [...anotaciones];
@@ -68,38 +66,42 @@ const handleSave = async () => {
     setAnotaciones(nuevas);
   };
 
-  if (!entrega) return <p style={{ color: "#fff" }}>Cargando entrega...</p>;
+  if (!entrega) return <p style={{ color: "#fff", textAlign: "center" }}>Cargando entrega...</p>;
 
   return (
     <div style={styles.wrapper}>
-      <h2>Revisión de Entrega</h2>
+      <h2 style={styles.title}>Revisión de Entrega</h2>
 
-      <label style={styles.label}>Comentario general:</label>
-      <textarea
-        style={styles.textarea}
-        value={comentario}
-        onChange={(e) => setComentario(e.target.value)}
-        placeholder="Comentario global del trabajo"
-      />
+      <div style={styles.section}>
+        <label style={styles.label}>Comentario general:</label>
+        <textarea
+          style={styles.textarea}
+          value={comentario}
+          onChange={(e) => setComentario(e.target.value)}
+          placeholder="Comentario global del trabajo"
+        />
+      </div>
 
-      <label style={styles.label}>Anotaciones específicas:</label>
-      {anotaciones.map((a, i) => (
-        <div key={i} style={styles.anotacionRow}>
-          <input
-            type="text"
-            value={a}
-            onChange={(e) => handleChangeAnotacion(i, e.target.value)}
-            style={styles.input}
-            placeholder={`Anotación ${i + 1}`}
-          />
-          <button onClick={() => handleRemoveAnotacion(i)} style={styles.removeBtn}>✕</button>
-        </div>
-      ))}
-      <button onClick={handleAddAnotacion} style={styles.addBtn}>+ Añadir anotación</button>
+      <div style={styles.section}>
+        <label style={styles.label}>Anotaciones específicas:</label>
+        {anotaciones.map((a, i) => (
+          <div key={i} style={styles.anotacionRow}>
+            <input
+              type="text"
+              value={a}
+              onChange={(e) => handleChangeAnotacion(i, e.target.value)}
+              style={styles.input}
+              placeholder={`Anotación ${i + 1}`}
+            />
+            <button onClick={() => handleRemoveAnotacion(i)} style={styles.removeBtn}>✕</button>
+          </div>
+        ))}
+        <button onClick={handleAddAnotacion} style={styles.addBtn}>+ Añadir anotación</button>
+      </div>
 
       <div style={styles.actions}>
         <button onClick={handleSave} style={styles.saveBtn}>Guardar</button>
-        <button onClick={() => navigate(-1)} style={styles.cancelBtn}>Cancelar</button>
+        <button onClick={() => navigate(-1)} style={styles.cancelBtn}>↩ Cancelar</button>
       </div>
     </div>
   );
@@ -107,37 +109,48 @@ const handleSave = async () => {
 
 const styles = {
   wrapper: {
-    backgroundColor: "#1a1a1a",
-    padding: "20px",
-    borderRadius: "10px",
+    backgroundColor: "#121212",
+    padding: "30px",
+    borderRadius: "12px",
     color: "#fff",
-    maxWidth: "600px",
-    margin: "0 auto",
+    maxWidth: "700px",
+    margin: "50px auto",
+    boxShadow: "0 0 15px rgba(0,0,0,0.5)",
+  },
+  title: {
+    textAlign: "center",
+    fontSize: "1.8rem",
+    color: "#1ed760",
+    marginBottom: "30px"
+  },
+  section: {
+    marginBottom: "20px"
   },
   label: {
     display: "block",
-    marginTop: "10px",
     marginBottom: "6px",
     fontWeight: "bold",
-    color: "#1ed760"
+    color: "#ccc",
+    fontSize: "1rem"
   },
   textarea: {
     width: "100%",
-    height: "100px",
-    padding: "10px",
-    borderRadius: "6px",
+    height: "120px",
+    padding: "12px",
+    borderRadius: "8px",
     border: "1px solid #444",
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#1e1e1e",
     color: "#fff",
-    marginBottom: "10px",
+    fontSize: "1rem"
   },
   input: {
     flex: 1,
-    padding: "8px",
-    backgroundColor: "#2a2a2a",
+    padding: "10px",
+    backgroundColor: "#1e1e1e",
     border: "1px solid #444",
-    borderRadius: "6px",
+    borderRadius: "8px",
     color: "#fff",
+    fontSize: "1rem"
   },
   anotacionRow: {
     display: "flex",
@@ -146,42 +159,45 @@ const styles = {
     marginBottom: "10px"
   },
   addBtn: {
-    backgroundColor: "#444",
-    color: "#fff",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "6px",
+    backgroundColor: "#292929",
+    color: "#1ed760",
+    border: "1px solid #1ed760",
+    padding: "8px 14px",
+    borderRadius: "8px",
     cursor: "pointer",
-    marginBottom: "10px"
+    transition: "0.2s",
   },
   removeBtn: {
-    backgroundColor: "#e53935",
+    backgroundColor: "#ff5252",
     border: "none",
     color: "#fff",
-    padding: "6px 10px",
-    borderRadius: "6px",
+    padding: "8px 12px",
+    borderRadius: "8px",
     cursor: "pointer"
   },
   actions: {
     display: "flex",
     justifyContent: "space-between",
-    marginTop: "20px"
+    marginTop: "30px"
   },
   saveBtn: {
     backgroundColor: "#1ed760",
     color: "#000",
     border: "none",
-    padding: "10px 20px",
-    borderRadius: "6px",
+    padding: "12px 24px",
+    borderRadius: "8px",
     fontWeight: "bold",
-    cursor: "pointer"
+    fontSize: "1rem",
+    cursor: "pointer",
+    transition: "0.3s"
   },
   cancelBtn: {
-    backgroundColor: "#888",
+    backgroundColor: "#444",
     color: "#fff",
     border: "none",
-    padding: "10px 20px",
-    borderRadius: "6px",
+    padding: "12px 24px",
+    borderRadius: "8px",
+    fontSize: "1rem",
     cursor: "pointer"
   }
 };
